@@ -1,0 +1,61 @@
+const std = @import("std");
+
+pub fn nasm_to(asm_file: []const u8, target_path: []const u8) !void {
+    var alloc = std.heap.GeneralPurposeAllocator(.{}){};
+    var child = std.process.Child.init(&[_][]const u8{ "nasm", asm_file, "-f", "elf64", "-w+all", "-Werror", "-o", target_path }, alloc.allocator());
+    _ = try child.spawnAndWait();
+}
+
+pub fn build(b: *std.Build) void {
+    const optimize = b.standardOptimizeOption(.{});
+
+    var add = std.Target.x86.featureSet(&[_]std.Target.x86.Feature{std.Target.x86.Feature.soft_float});
+    _ = add;
+    var disable = std.Target.x86.featureSet(&[_]std.Target.x86.Feature{ std.Target.x86.Feature.mmx, std.Target.x86.Feature.sse });
+    var cross =
+        std.zig.CrossTarget{
+        .cpu_arch = std.Target.Cpu.Arch.x86_64,
+        .cpu_model = std.zig.CrossTarget.CpuModel{ .explicit = &std.Target.x86.cpu.znver1 },
+        .cpu_features_sub = disable,
+        .os_tag = .freestanding,
+        .abi = std.Target.Abi.none,
+    };
+
+    const exe = b.addExecutable(.{
+        .name = "zros",
+        .root_source_file = .{ .path = "src/main.zig" },
+        .target = cross,
+        .optimize = optimize,
+    });
+    exe.pie = true;
+    exe.linker_script = std.Build.LazyPath{ .path = "linker.ld" };
+
+    std.fs.cwd().makePath("./zig-cache/nasm") catch {};
+    nasm_to("./src/gdt/gdt.s", "./zig-cache/nasm/gdt.o") catch |err| {
+        std.log.err("{}", .{err});
+        return;
+    };
+
+    nasm_to("./src/idt/idt.s", "./zig-cache/nasm/idt.o") catch |err| {
+        std.log.err("{}", .{err});
+        return;
+    };
+
+    exe.addObjectFile(std.Build.LazyPath{ .path = "./zig-cache/nasm/gdt.o" });
+    exe.addObjectFile(std.Build.LazyPath{ .path = "./zig-cache/nasm/idt.o" });
+
+    b.installArtifact(exe);
+
+    const unit_tests = b.addTest(.{ .root_source_file = .{ .path = "src/main.zig" }, .target = std.zig.CrossTarget{
+        .cpu_arch = std.Target.Cpu.Arch.x86_64,
+        .cpu_model = std.zig.CrossTarget.CpuModel{ .explicit = &std.Target.x86.cpu.znver1 },
+        .os_tag = .freestanding,
+        .abi = std.Target.Abi.none,
+    }, .optimize = optimize });
+
+    unit_tests.linker_script = std.Build.LazyPath{ .path = "linker.ld" };
+
+    const run_unit_tests = b.addRunArtifact(unit_tests);
+    const test_step = b.step("test", "Run unit tests");
+    test_step.dependOn(&run_unit_tests.step);
+}
