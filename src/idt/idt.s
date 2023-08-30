@@ -2,7 +2,6 @@
 
 load_idt:
     lidt [rdi]
-
-    retfq
+    retq
 
 global load_idt
