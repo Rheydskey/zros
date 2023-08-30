@@ -9,7 +9,7 @@ pub fn main() !void {
         return;
     };
     asm volatile ("cli");
-    serial.Serial.write_array("Start init");
+    _ = serial.print("Start init", .{});
 
     gdt.init();
     try idt.init();

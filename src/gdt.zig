@@ -46,7 +46,7 @@ test "size of gdtentry" {
 }
 
 pub fn init() void {
-    serial.Serial.write_array("Start GDT Init\n");
+    serial.print("Start GDT Init\n", .{});
     load_gdt(&GDTPtr{ .size = @as(u16, @sizeOf([6]GDTEntry) - 1), .address = @intFromPtr(&GDT) });
-    serial.Serial.write_array("GDT ok\n");
+    serial.print("GDT ok\n", .{});
 }

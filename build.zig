@@ -28,6 +28,10 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
     exe.pie = true;
+    exe.code_model = std.builtin.CodeModel.kernel;
+    exe.red_zone = false;
+    exe.stack_protector = false;
+    exe.is_linking_libc = false;
     exe.linker_script = std.Build.LazyPath{ .path = "linker.ld" };
 
     std.fs.cwd().makePath("./zig-cache/nasm") catch {};

@@ -5,14 +5,17 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "type": "lldb",
+            "request": "launch",
             "name": "Debug",
-            "type": "gdb",
-            "request": "attach",
-            "target": "localhost:1234",
-            "remote": true,
-            "gdbpath": "gdb",
-            "cwd": "${workspaceRoot}",
-            "valuesFormatting": "parseText",
+            "program": "${workspaceFolder}/zig-out/bin/zros",
+            "args": [
+                "/usr/local/bin/zig"
+            ],
+            "processCreateCommands": [
+                "gdb-remote localhost:1234"
+            ],
+            "cwd": "${workspaceFolder}",
         }
     ]
 }

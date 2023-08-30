@@ -2,6 +2,14 @@ const outb = @import("./asm.zig").outb;
 const inb = @import("./asm.zig").inb;
 const std = @import("std");
 
+pub fn print(comptime format: []const u8, args: anytype) void {
+    _ =  Serial.writer().print(format, args) catch {};
+}
+
+pub const WriteOption = struct {
+    linenumber: bool = false
+};
+
 pub const Com = struct {
     const COM1 = 0x3F8;
     const COM2 = 0x2F8;
@@ -58,17 +66,21 @@ pub const Serial = struct {
         try outb(Com.COM1, value);
     }
 
-    pub fn write_array(values: []const u8) void {
+    pub fn write_array(values: []const u8) usize {
+        var written: usize = 0;
         for (values) |value| {
+            written += 1;
             Serial.write(value) catch {};
+
         }
+
+        return written;
     }
 
     pub fn writeWithContext(self: Serial, values: []const u8) WriteError!usize {
         _ = self;
-        Serial.write_array(values);
 
-        return 0;
+        return Serial.write_array(values);
     }
 
     const WriteError = error{CannotWrite};

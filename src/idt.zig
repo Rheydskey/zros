@@ -26,7 +26,7 @@ const InterruptStackFrame = extern struct {
     stack_point: u64,
     stack_segment: u64,
 };
-const InterruptHandler = fn () callconv(.Naked) void;
+const InterruptHandler = fn (interrupt: usize) callconv(.Interrupt) void;
 const IDTEntry = packed struct {
     offset_l: u16 = 0,
     code_segment: u16 = 0,
@@ -36,29 +36,29 @@ const IDTEntry = packed struct {
     offset_h: u32 = 0,
     zero: u32 = 0,
 
-    pub fn set_offset(self: *IDTEntry, base: usize) void {
+    pub fn set_offset(self: *IDTEntry, base: u64) void {
         self.*.offset_l = @intCast(@as(u16, @truncate(base)));
 
         self.*.offset_m = @intCast(@as(u16, @truncate(base >> 16)));
-        serial.Serial.write_array("No overflow >> 16");
+        serial.print("No overflow >> 16", .{});
 
         self.*.offset_h = @intCast(@as(u16, @truncate(base >> 32)));
-        serial.Serial.write_array("No overflow >> 32");
+        serial.print("No overflow >> 32", .{});
     }
 
-    pub fn set_function(self: *IDTEntry, comptime handler: InterruptHandler) void {
-        serial.Serial.write_array("try type attribute\n");
+    pub fn set_function(self: *IDTEntry, handler: *const InterruptHandler) void {
+        _ = handler;
+        serial.print("try type attribute\n", .{});
         self.*.type_attr = IDTFlags.Present | IDTFlags.Ring0 | IDTFlags.Interrupt;
-        serial.Serial.write_array("Wrote type attribute\n");
-        var teststr = serial.Serial.writer();
-        teststr.print("{d}", .{@intFromPtr(handler)}) catch {};
+        serial.print("Wrote type attribute\n", .{});
 
-        const ptrusize: usize =
-            @intFromPtr(handler);
+        serial.print("{d}", .{&divise_by_zero});
+
+        const ptrusize: u64 = @intFromPtr(&divise_by_zero);
         _ = ptrusize;
-        serial.Serial.write_array("Wrote offset\n");
+        serial.print("Wrote offset\n", .{});
         self.*.code_segment = 8;
-        serial.Serial.write_array("Wrote segment");
+        serial.print("Wrote segment", .{});
     }
 };
 
@@ -66,13 +66,13 @@ extern fn load_idt(idt: *const IDTPtr) void;
 
 pub fn init() !void {
     asm volatile ("cli");
-    serial.Serial.write_array("Start IDT init\n");
+    serial.print("Start IDT init\n", .{});
 
-    IDT[0].set_function(divise_by_zero);
+    IDT[0].set_function(&divise_by_zero);
 
-    serial.Serial.write_array("Division setted\n");
+    serial.print("Division setted\n", .{});
 
-    serial.Serial.write_array("Handler setted");
+    serial.print("Handler setted", .{});
 
     load_idt(&IDTPtr{ .size = @sizeOf([256]IDTEntry) - 1, .base_address = @intFromPtr(&IDT) });
     asm volatile ("sti");
@@ -80,12 +80,12 @@ pub fn init() !void {
 
 pub export fn divise_by_zero(interrupt: usize) callconv(.Interrupt) void {
     _ = interrupt;
-    serial.Serial.write_array("divise by zero");
+    serial.print("divise_by_zero", .{});
     asm volatile ("hlt");
 }
 
 pub export fn debug(interrupt: *InterruptStackFrame) callconv(.Interrupt) void {
-    serial.Serial.write_array("debug");
+    serial.print("debug", .{});
     _ = interrupt;
 }
 
