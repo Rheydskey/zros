@@ -27,7 +27,7 @@ pub fn build(b: *std.Build) void {
         .target = cross,
         .optimize = optimize,
     });
-    exe.pie = true;
+    exe.pie = false;
     exe.code_model = std.builtin.CodeModel.kernel;
     exe.red_zone = false;
     exe.stack_protector = false;
