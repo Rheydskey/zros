@@ -3,12 +3,10 @@ const inb = @import("./asm.zig").inb;
 const std = @import("std");
 
 pub fn print(comptime format: []const u8, args: anytype) void {
-    _ =  Serial.writer().print(format, args) catch {};
+    _ = Serial.writer().print(format, args) catch {};
 }
 
-pub const WriteOption = struct {
-    linenumber: bool = false
-};
+pub const WriteOption = struct { linenumber: bool = false };
 
 pub const Com = struct {
     const COM1 = 0x3F8;
@@ -71,7 +69,6 @@ pub const Serial = struct {
         for (values) |value| {
             written += 1;
             Serial.write(value) catch {};
-
         }
 
         return written;
