@@ -21,37 +21,33 @@ pub const Com = struct {
 
 pub const Serial = struct {
     pub fn init() !Serial {
-        var com: u16 = Com.COM1;
+        const com: u16 = Com.COM1;
 
-        try outb(com + 1, 0x00);
-        try outb(com + 3, 0x80);
-        try outb(com, 0x3);
-        try outb(com + 1, 0);
-        try outb(com + 3, 0x03);
-        try outb(com + 2, 0xC7);
-        try outb(com + 4, 0x0B);
-        try outb(com + 4, 0x1E);
-        try outb(com, 0xAE);
+        outb(com + 1, 0x00);
+        outb(com + 3, 0x80);
+        outb(com, 0x3);
+        outb(com + 1, 0);
+        outb(com + 3, 0x03);
+        outb(com + 2, 0xC7);
+        outb(com + 4, 0x0B);
+        outb(com + 4, 0x1E);
+        outb(com, 0xAE);
 
-        if (try inb(com) != 0xAE) {
+        if (inb(com) != 0xAE) {
             return error.SerialFault;
         }
 
-        try outb(com + 4, 0x0F);
+        outb(com + 4, 0x0F);
 
         return Serial{};
     }
 
     pub fn is_transmit_empty() u8 {
-        return inb(Com.COM1 + 5) catch {
-            return 1;
-        } & 0x20;
+        return inb(Com.COM1 + 5) & 0x20;
     }
 
     pub fn is_serial_receiving() bool {
-        return inb(Com.COM1 + 5) catch {
-            return false;
-        } & 1 == 0;
+        return inb(Com.COM1 + 5) & 1 == 0;
     }
 
     pub fn read() !u8 {
@@ -59,16 +55,16 @@ pub const Serial = struct {
         return inb(Com.COM1);
     }
 
-    pub fn write(value: u8) !void {
+    pub fn write(value: u8) void {
         while (Serial.is_transmit_empty() == 0) {}
-        try outb(Com.COM1, value);
+        outb(Com.COM1, value);
     }
 
     pub fn write_array(values: []const u8) usize {
         var written: usize = 0;
         for (values) |value| {
             written += 1;
-            Serial.write(value) catch {};
+            Serial.write(value);
         }
 
         return written;

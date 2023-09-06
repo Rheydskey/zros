@@ -42,7 +42,7 @@ pub const Flags = packed struct(u4) {
     }
 };
 
-pub const GDTEntry =   packed struct(u64) {
+pub const GDTEntry = packed struct(u64) {
     limit_low: u16 = 0x00,
     base_low: u16 = 0x00,
     base_middle: u8 = 0x00,

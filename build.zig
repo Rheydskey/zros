@@ -9,17 +9,19 @@ pub fn nasm_to(asm_file: []const u8, target_path: []const u8) !void {
 pub fn build(b: *std.Build) void {
     const optimize = b.standardOptimizeOption(.{});
 
-    var add = std.Target.x86.featureSet(&[_]std.Target.x86.Feature{std.Target.x86.Feature.soft_float});
-    _ = add;
-    var disable = std.Target.x86.featureSet(&[_]std.Target.x86.Feature{ std.Target.x86.Feature.mmx, std.Target.x86.Feature.sse });
     var cross =
         std.zig.CrossTarget{
         .cpu_arch = std.Target.Cpu.Arch.x86_64,
-        .cpu_model = std.zig.CrossTarget.CpuModel{ .explicit = &std.Target.x86.cpu.znver1 },
-        .cpu_features_sub = disable,
         .os_tag = .freestanding,
         .abi = std.Target.Abi.none,
     };
+    const x86features = std.Target.x86.Feature;
+    cross.cpu_features_add.addFeature(@intFromEnum(x86features.soft_float));
+    cross.cpu_features_sub.addFeature(@intFromEnum(x86features.mmx));
+    cross.cpu_features_sub.addFeature(@intFromEnum(x86features.sse));
+    cross.cpu_features_sub.addFeature(@intFromEnum(x86features.sse2));
+    cross.cpu_features_sub.addFeature(@intFromEnum(x86features.avx));
+    cross.cpu_features_sub.addFeature(@intFromEnum(x86features.avx2));
 
     const exe = b.addExecutable(.{
         .name = "zros",
@@ -29,9 +31,6 @@ pub fn build(b: *std.Build) void {
     });
     exe.pie = false;
     exe.code_model = std.builtin.CodeModel.kernel;
-    exe.red_zone = false;
-    exe.stack_protector = false;
-    exe.is_linking_libc = false;
     exe.linker_script = std.Build.LazyPath{ .path = "linker.ld" };
 
     std.fs.cwd().makePath("./zig-cache/nasm") catch {};
