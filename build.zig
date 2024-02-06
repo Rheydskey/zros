@@ -39,11 +39,6 @@ pub fn build(b: *std.Build) void {
         return;
     };
 
-    nasm_to("./src/idt/idt.s", "./zig-cache/nasm/idt.o") catch |err| {
-        std.log.err("{}", .{err});
-        return;
-    };
-
     exe.addObjectFile(std.Build.LazyPath{ .path = "./zig-cache/nasm/gdt.o" });
     exe.addObjectFile(std.Build.LazyPath{ .path = "./zig-cache/nasm/idt.o" });
 

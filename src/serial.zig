@@ -25,7 +25,7 @@ pub const Serial = struct {
 
         outb(com + 1, 0x00);
         outb(com + 3, 0x80);
-        outb(com, 0x3);
+        outb(com, 0x03);
         outb(com + 1, 0);
         outb(com + 3, 0x03);
         outb(com + 2, 0xC7);
@@ -46,12 +46,12 @@ pub const Serial = struct {
         return inb(Com.COM1 + 5) & 0x20;
     }
 
-    pub fn is_serial_receiving() bool {
-        return inb(Com.COM1 + 5) & 1 == 0;
+    pub fn is_serial_receiving() u8 {
+        return inb(Com.COM1 + 5) & 1;
     }
 
     pub fn read() !u8 {
-        while (Serial.is_serial_receiving()) {}
+        while (Serial.is_serial_receiving() == 0) {}
         return inb(Com.COM1);
     }
 

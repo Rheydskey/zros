@@ -25,7 +25,7 @@ pub fn main() !noreturn {
     gdt.init();
     try idt.init();
 
-    // asm volatile ("int $0x00");
+    asm volatile ("int $0x00");
 
     while (true) {
         var value = try serial.Serial.read();

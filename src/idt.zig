@@ -2,14 +2,17 @@ const serial = @import("serial.zig");
 const std = @import("std");
 const interrupt = @import("idt/interrupt.zig");
 const pic = @import("pic.zig");
-var IDT: [256]IDTEntry = [_]IDTEntry{IDTEntry{}} ** 256;
+
+const IDT_SIZE = 256;
+
+var IDT: [IDT_SIZE]IDTEntry = [_]IDTEntry{IDTEntry{}} ** IDT_SIZE;
 
 const IDTPtr = packed struct(u80) {
     size: u16,
     base_address: u64,
 };
 
-const IDTEntry = packed struct(u128) {
+pub const IDTEntry = packed struct(u128) {
     offset_l: u16 = 0,
     code_segment: u16 = 0,
     ist: u8 = 0,
@@ -24,9 +27,10 @@ const IDTEntry = packed struct(u128) {
         self.*.offset_h = @truncate(base >> 32);
     }
 
-    const InterruptHandler = fn (interrupt: *const interrupt.InterruptStackFrame) callconv(.C) void;
+    pub const InterruptToHandler = *const fn () callconv(.Naked) void;
+    pub const InterruptHandler = *const fn (interrupt: *const interrupt.InterruptStackFrame) callconv(.C) void;
 
-    pub fn set_function(self: *IDTEntry, handler: *const InterruptHandler) void {
+    pub fn set_function(self: *IDTEntry, handler: InterruptToHandler) void {
         self.*.type_attr = .{ .present = true };
 
         self.set_offset(@intFromPtr(handler));
@@ -44,8 +48,6 @@ const IDTEntry = packed struct(u128) {
     };
 };
 
-extern fn load_idt(idt: *const IDTPtr) void;
-
 pub fn init() !void {
     asm volatile ("cli");
     serial.print("Start IDT init\n", .{});
@@ -53,19 +55,24 @@ pub fn init() !void {
     try pic.load_pic();
 
     inline for (0..15) |i| {
-        IDT[i].set_function(&interrupt.interrupt_handler);
+        IDT[i].set_function(comptime interrupt.makeHandler(i));
     }
 
     inline for (16..21) |i| {
-        IDT[i].set_function(&interrupt.interrupt_handler);
+        IDT[i].set_function(comptime interrupt.makeHandler(i));
     }
 
-    IDT[30].set_function(&interrupt.interrupt_handler);
+    //    IDT[30].set_function(&interrupt.interrupt_handler);
 
-    IDT[32].set_function(&interrupt.pit);
-    IDT[33].set_function(&interrupt.keyboard);
+    //  IDT[32].set_function(&interrupt.pit);
+    // IDT[33].set_function(&interrupt.keyboard);
 
-    load_idt(&IDTPtr{ .size = @sizeOf([256]IDTEntry) - 1, .base_address = @intFromPtr(&IDT) });
+    var descriptor = &IDTPtr{ .size = @sizeOf([256]IDTEntry) - 1, .base_address = @intFromPtr(&IDT) };
+    asm volatile ("lidt (%[idtr])"
+        :
+        : [idtr] "r" (&descriptor),
+        : "memory"
+    );
 
     asm volatile ("sti");
 
