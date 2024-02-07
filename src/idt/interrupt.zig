@@ -17,12 +17,11 @@ pub const Interrupt = packed struct {
     code_err: u64,
 
     pub fn log(self: *const @This()) void {
-        serial.print("Error code : {x}", .{self.code_err});
+        serial.print("Interrupt no: {x}\nError code : {x}\n", .{ self.interrupt, self.code_err });
     }
 };
 
 pub export fn interrupt_handler(rsp: u64) callconv(.C) u64 {
-    serial.print("HERE", .{});
     const reg: *Interrupt = @ptrFromInt(rsp);
     reg.log();
 

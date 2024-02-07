@@ -56,6 +56,6 @@ extern fn load_gdt(gdt_descriptor: *const GDTPtr) void;
 
 pub fn init() void {
     serial.print("Start GDT Init\n", .{});
-    load_gdt(&GDTPtr{ .size = @as(u16, @sizeOf([5]GDTEntry) - 1), .address = @intFromPtr(&GDT) });
+    load_gdt(&GDTPtr{ .size =  @sizeOf([5]GDTEntry) - 1, .address = @intFromPtr(&GDT) });
     serial.print("GDT ok\n", .{});
 }
