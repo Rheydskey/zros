@@ -34,13 +34,25 @@ pub fn build(b: *std.Build) void {
     exe.linker_script = std.Build.LazyPath{ .path = "linker.ld" };
 
     std.fs.cwd().makePath("./zig-cache/nasm") catch {};
+
     nasm_to("./src/gdt/gdt.s", "./zig-cache/nasm/gdt.o") catch |err| {
+        std.log.err("{}", .{err});
+        return;
+    };
+
+    nasm_to("./src/idt/idt.s", "./zig-cache/nasm/idt.o") catch |err| {
+        std.log.err("{}", .{err});
+        return;
+    };
+
+    nasm_to("./src/idt/interrupt.s", "./zig-cache/nasm/interrupt.o") catch |err| {
         std.log.err("{}", .{err});
         return;
     };
 
     exe.addObjectFile(std.Build.LazyPath{ .path = "./zig-cache/nasm/gdt.o" });
     exe.addObjectFile(std.Build.LazyPath{ .path = "./zig-cache/nasm/idt.o" });
+    exe.addObjectFile(std.Build.LazyPath{ .path = "./zig-cache/nasm/interrupt.o" });
 
     b.installArtifact(exe);
 
