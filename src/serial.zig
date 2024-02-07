@@ -2,6 +2,14 @@ const outb = @import("./asm.zig").outb;
 const inb = @import("./asm.zig").inb;
 const std = @import("std");
 
+pub fn print_err(comptime format: []const u8, args: anytype) void {
+    print("[ERR] " ++ format ++ "\n", args);
+}
+
+pub fn print_ok(comptime format: []const u8, args: anytype) void {
+    print("[OK] " ++ format ++ "\n", args);
+}
+
 pub fn print(comptime format: []const u8, args: anytype) void {
     _ = Serial.writer().print(format, args) catch {};
 }

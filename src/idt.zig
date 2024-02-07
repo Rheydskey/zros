@@ -81,5 +81,5 @@ pub fn init() !void {
 
     asm volatile ("sti");
 
-    serial.print("IDT ok\n", .{});
+    serial.print_ok("IDT", .{});
 }

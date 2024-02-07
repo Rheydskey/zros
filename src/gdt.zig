@@ -2,10 +2,10 @@ const serial = @import("./serial.zig");
 
 var GDT: [5]GDTEntry = [_]GDTEntry{
     GDTEntry{},
-    GDTEntry{ .access_byte = .{ .present = 1, .executable = 1, .read_write = 1, .typebit = TypeBit.CODE_DATA }, .flags = .{ .granularity = true, .long = true } },
-    GDTEntry{ .access_byte = .{ .present = 1, .read_write = 1, .typebit = TypeBit.CODE_DATA }, .flags = .{ .granularity = true, .descriptor = 1 } },
-    GDTEntry{ .access_byte = .{ .present = 1, .read_write = 1, .typebit = TypeBit.CODE_DATA, .privilege = 3 }, .flags = .{ .granularity = true, .long = true } },
-    GDTEntry{ .access_byte = .{ .present = 1, .executable = 1, .read_write = 1, .typebit = TypeBit.CODE_DATA, .privilege = 3 }, .flags = .{ .granularity = true, .descriptor = 1 } },
+    GDTEntry{ .access_byte = .{ .present = true, .executable = true, .read_write = true, .typebit = TypeBit.CODE_DATA }, .flags = .{ .granularity = true, .long = true } },
+    GDTEntry{ .access_byte = .{ .present = true, .read_write = true, .typebit = TypeBit.CODE_DATA }, .flags = .{ .granularity = true, .descriptor = 1 } },
+    GDTEntry{ .access_byte = .{ .present = true, .read_write = true, .typebit = TypeBit.CODE_DATA, .privilege = 3 }, .flags = .{ .granularity = true, .long = true } },
+    GDTEntry{ .access_byte = .{ .present = true, .executable = true, .read_write = true, .typebit = TypeBit.CODE_DATA, .privilege = 3 }, .flags = .{ .granularity = true, .descriptor = 1 } },
 };
 
 const GDTPtr = packed struct {
@@ -19,13 +19,13 @@ const TypeBit = enum(u1) {
 };
 
 const AccessByte = packed struct(u8) {
-    accessed_bit: u1 = 0,
-    read_write: u1 = 0,
-    dc: u1 = 0,
-    executable: u1 = 0,
+    accessed_bit: bool = false,
+    read_write: bool = false,
+    dc: bool = false,
+    executable: bool = false,
     typebit: TypeBit = TypeBit.SYSTEM,
     privilege: u2 = 0,
-    present: u1 = 0,
+    present: bool = false,
 };
 
 pub const Flags = packed struct(u4) {
@@ -55,5 +55,5 @@ extern fn load_gdt(gdt_descriptor: *const GDTPtr) void;
 pub fn init() void {
     serial.print("Start GDT Init\n", .{});
     load_gdt(&GDTPtr{ .size = @sizeOf([5]GDTEntry) - 1, .address = @intFromPtr(&GDT) });
-    serial.print("GDT ok\n", .{});
+    serial.print_ok("GDT", .{});
 }
