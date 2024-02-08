@@ -36,7 +36,7 @@ pub export fn keyboard(interrupt: *const InterruptStackFrame) callconv(.C) void 
     _ = interrupt;
 
     serial.print("Enter keyboard\n", .{});
-    var scancode = assembly.inb(0x60);
+    const scancode = assembly.inb(0x60);
     // catch {
     //    serial.print("Cannot read (keyboard)", .{});
     //    return;

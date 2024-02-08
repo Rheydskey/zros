@@ -22,7 +22,7 @@ pub fn main() !noreturn {
     try idt.init();
 
     while (true) {
-        var value = try serial.Serial.read();
+        const value = try serial.Serial.read();
         if (value == 0) continue;
 
         serial.print("{} => {}\n", .{ value, keyboard.event2enum(value) });

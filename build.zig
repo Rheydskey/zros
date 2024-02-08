@@ -23,14 +23,12 @@ pub fn build(b: *std.Build) void {
     cross.cpu_features_sub.addFeature(@intFromEnum(x86features.avx));
     cross.cpu_features_sub.addFeature(@intFromEnum(x86features.avx2));
 
-    const exe = b.addExecutable(.{
-        .name = "zros",
-        .root_source_file = .{ .path = "src/main.zig" },
-        .target = cross,
-        .optimize = optimize,
-    });
+    const target = b.resolveTargetQuery(cross);
+
+    const exe = b.addExecutable(.{ .name = "zros", .root_source_file = .{
+        .path = "src/main.zig",
+    }, .target = target, .optimize = optimize, .code_model = std.builtin.CodeModel.kernel });
     exe.pie = false;
-    exe.code_model = std.builtin.CodeModel.kernel;
     exe.linker_script = std.Build.LazyPath{ .path = "linker.ld" };
 
     std.fs.cwd().makePath("./zig-cache/nasm") catch {};
@@ -56,12 +54,14 @@ pub fn build(b: *std.Build) void {
 
     b.installArtifact(exe);
 
-    const unit_tests = b.addTest(.{ .root_source_file = .{ .path = "src/main.zig" }, .target = std.zig.CrossTarget{
+    const unittarget = b.resolveTargetQuery(std.zig.CrossTarget{
         .cpu_arch = std.Target.Cpu.Arch.x86_64,
         .cpu_model = std.zig.CrossTarget.CpuModel{ .explicit = &std.Target.x86.cpu.znver1 },
         .os_tag = .freestanding,
         .abi = std.Target.Abi.none,
-    }, .optimize = optimize });
+    });
+
+    const unit_tests = b.addTest(.{ .root_source_file = .{ .path = "src/main.zig" }, .target = unittarget, .optimize = optimize });
 
     unit_tests.linker_script = std.Build.LazyPath{ .path = "linker.ld" };
 

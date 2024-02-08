@@ -24,7 +24,7 @@ const KeyboardEvent = enum {
 };
 
 pub fn event2enum(scancode: u8) KeyboardEvent {
-    var event = switch (scancode) {
+    const event = switch (scancode) {
         0x01 => KeyboardEvent.Esc,
         0x0E => KeyboardEvent.Back,
         0x1C => KeyboardEvent.Enter,
@@ -44,7 +44,7 @@ pub fn event2enum(scancode: u8) KeyboardEvent {
 }
 
 pub fn handle(scancode: u8) void {
-    var event = event2enum(scancode);
+    const event = event2enum(scancode);
 
     switch (event) {
         KeyboardEvent.Esc => {
