@@ -4,6 +4,7 @@ const idt = @import("./idt.zig");
 const assembly = @import("./asm.zig");
 const keyboard = @import("keyboard.zig");
 const builtin = @import("std").builtin;
+const iter = @import("./iter.zig");
 
 pub fn panic(_: []const u8, _: ?*builtin.StackTrace, _: ?usize) noreturn {
     while (true) {}
@@ -17,6 +18,12 @@ pub fn main() !noreturn {
 
     asm volatile ("cli");
     _ = serial.print("Start init", .{});
+
+    var range = iter.Range.exclusive(0, 10).iter();
+
+    while (range.next()) |e| {
+        serial.print("{}\n", .{e});
+    }
 
     gdt.init();
     try idt.init();
