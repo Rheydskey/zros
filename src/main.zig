@@ -17,7 +17,7 @@ pub fn main() !noreturn {
     };
 
     asm volatile ("cli");
-    _ = serial.print("Start init", .{});
+    serial.println("Start init", .{});
 
     var range = iter.Range.exclusive(0, 10).iter();
 

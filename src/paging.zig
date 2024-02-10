@@ -27,14 +27,12 @@ pub const PmlEntry = packed struct(u64) {
 };
 
 pub const PageMapLevelX = struct {
-    entries: [512]PmlEntry,
-
     pub fn level(l: u8) type {
         return struct {
-            a: u8,
+            entries: [512]PmlEntry,
 
-            pub fn dtest() u8 {
-                return l;
+            pub inline fn get_index(address: usize) usize {
+                return ((address & (0x1ff << (12 + l * 9))) >> (12 + l * 9));
             }
         };
     }

@@ -14,6 +14,10 @@ pub fn print(comptime format: []const u8, args: anytype) void {
     _ = Serial.writer().print(format, args) catch {};
 }
 
+pub fn println(comptime format: []const u8, args: anytype) void {
+    _ = Serial.writer().print(format ++ "\n", args) catch {};
+}
+
 pub const WriteOption = struct { linenumber: bool = false };
 
 pub const Com = struct {
