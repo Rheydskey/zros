@@ -1,65 +1,66 @@
 const serial = @import("./serial.zig");
 const Range = @import("./iter.zig").Range;
 
-pub const BitMapU8 =
-    struct {
-    entries: [10]u8,
-    next_free_block: usize = 0,
+pub fn BitMapU8_with_size(comptime size: usize) type {
+    return struct {
+        entries: [size]u8,
+        next_free_block: usize = 0,
 
-    const bit_size: usize = @bitSizeOf(u8);
-    const Self = @This();
+        const bit_size: usize = @bitSizeOf(u8);
+        const Self = @This();
 
-    pub fn new() @This() {
-        return .{ .entries = undefined };
-    }
-
-    pub fn init(s: *@This()) void {
-        serial.println("Initializing bitmap", .{});
-        for (0..s.entries.len) |i| {
-            s.entries[i] = 0;
-        }
-    }
-
-    pub fn set(self: *Self, nth: usize) void {
-        if (nth > self.entries.len) {
-            return;
+        pub fn new() @This() {
+            return .{ .entries = undefined };
         }
 
-        self.entries[nth / bit_size] |= @as(u8, 1) << @truncate(nth % bit_size);
-    }
-
-    pub fn unset(self: *Self, nth: usize) void {
-        if (nth > self.entries.len) {
-            return;
+        pub fn init(s: *@This()) void {
+            serial.println("Initializing bitmap", .{});
+            for (0..s.entries.len) |i| {
+                s.entries[i] = 0;
+            }
         }
 
-        // !(!0b11101 | 1 << 0) & 0b11101 = 0b11100
-        self.entries[nth / bit_size] &= ~(~self.entries[nth / bit_size] | @as(u8, 1) << @truncate(nth % bit_size));
-    }
-
-    pub fn get(self: *@This(), nth: usize) bool {
-        return ((self.entries[nth / bit_size] >> @truncate(nth % bit_size)) & 1) == 1;
-    }
-
-    /// Bool act like a result
-    pub fn alloc(self: *Self, range: Range) bool {
-        while (range.iter()) |i| {
-            if (i > self.entries.len) {
-                return false;
+        pub fn set(self: *Self, nth: usize) void {
+            if (nth > self.entries.len) {
+                return;
             }
 
-            self.set(i);
+            self.entries[nth / bit_size] |= @as(u8, 1) << @truncate(nth % bit_size);
         }
 
-        true;
-    }
+        pub fn unset(self: *Self, nth: usize) void {
+            if (nth > self.entries.len) {
+                return;
+            }
 
-    pub fn debug(self: Self) void {
-        for (self.entries) |i| {
-            serial.println("0b{b:0>8}", .{i});
+            // !(!0b11101 | 1 << 0) & 0b11101 = 0b11100
+            self.entries[nth / bit_size] &= ~(~self.entries[nth / bit_size] | @as(u8, 1) << @truncate(nth % bit_size));
         }
-    }
-};
+
+        pub fn get(self: *@This(), nth: usize) bool {
+            return ((self.entries[nth / bit_size] >> @truncate(nth % bit_size)) & 1) == 1;
+        }
+
+        /// Bool act like a result
+        pub fn alloc(self: *Self, range: Range) bool {
+            while (range.iter()) |i| {
+                if (i > self.entries.len) {
+                    return false;
+                }
+
+                self.set(i);
+            }
+
+            true;
+        }
+
+        pub fn debug(self: Self) void {
+            for (self.entries) |i| {
+                serial.println("0b{b:0>8}", .{i});
+            }
+        }
+    };
+}
 
 pub fn BitMap(comptime num_entries: usize, comptime entry_type: type) type {
     return struct {

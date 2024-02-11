@@ -19,8 +19,9 @@ pub fn main() !noreturn {
 
     asm volatile ("cli");
     serial.println("Start init", .{});
+    const BitMapU8sized = pmm.BitMapU8_with_size(8);
 
-    var a: pmm.BitMapU8 = pmm.BitMapU8.new();
+    var a = BitMapU8sized.new();
 
     a.init();
 
