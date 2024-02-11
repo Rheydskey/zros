@@ -17,6 +17,7 @@ const Color = extern struct {
 
 export var base_revision: limine.BaseRevision = .{ .revision = 1 };
 export var framebuffer: limine.FramebufferRequest = .{};
+export var memory_map: limine.MemoryMapRequest = .{};
 
 pub fn panic(_: []const u8, _: ?*builtin.StackTrace, _: ?usize) noreturn {
     while (true) {}
@@ -48,6 +49,12 @@ pub fn main() !noreturn {
                     offset += 4;
                 }
             }
+        }
+    }
+
+    if (memory_map.response) |response| {
+        for (response.entries()) |entry| {
+            serial.println("MMAP - base: {} length: {} kind: {}", .{ entry.base, entry.length, entry.kind });
         }
     }
 
