@@ -58,22 +58,21 @@ pub fn main() !noreturn {
         }
     }
 
-    asm volatile ("cli");
     serial.println("Start init", .{});
-    const BitMapU8sized = ds.BitMapU8_with_size(8);
+    // const BitMapU8sized = ds.BitMapU8_with_size(8);
 
-    var a = BitMapU8sized.new();
+    // var a = BitMapU8sized.new();
 
-    a.init();
+    // a.init();
 
-    a.set(1);
-    a.set(2);
-    a.set(8);
-    a.set(81);
-    a.unset(2);
-    serial.println("{}", .{a.get(1)});
-    serial.println("{}", .{a.get(0)});
-    a.debug();
+    // a.set(1);
+    // a.set(2);
+    // a.set(8);
+    // a.set(81);
+    // a.unset(2);
+    // serial.println("{}", .{a.get(1)});
+    // serial.println("{}", .{a.get(0)});
+    // a.debug();
 
     gdt.init();
     try idt.init();
