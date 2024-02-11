@@ -1,0 +1,10 @@
+.{
+    .name = "zros",
+    .version = "0.0.1",
+    .paths = .{"./src"},
+    .dependencies = .{
+        .limine = .{
+			.path = "./limine-zig"
+        },
+    },
+}

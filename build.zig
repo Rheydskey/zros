@@ -1,12 +1,20 @@
 const std = @import("std");
 
-pub fn nasm_to(asm_file: []const u8, target_path: []const u8) !void {
+const AsmPath = struct {
+    path_file: []const u8,
+    file_name: []const u8,
+};
+
+pub fn nasm_to(comptime file: AsmPath, exe: *std.Build.Step.Compile) !void {
     var alloc = std.heap.GeneralPurposeAllocator(.{}){};
-    var child = std.process.Child.init(&[_][]const u8{ "nasm", asm_file, "-f", "elf64", "-w+all", "-Werror", "-o", target_path }, alloc.allocator());
+    const output = "./zig-cache/nasm/" ++ file.file_name ++ ".o";
+    var child = std.process.Child.init(&[_][]const u8{ "nasm", file.path_file, "-f", "elf64", "-w+all", "-Werror", "-o", output }, alloc.allocator());
     _ = try child.spawnAndWait();
+
+    exe.addObjectFile(std.Build.LazyPath{ .path = output });
 }
 
-pub fn build(b: *std.Build) void {
+pub fn build(b: *std.Build) !void {
     const optimize = b.standardOptimizeOption(.{});
 
     var cross =
@@ -26,32 +34,22 @@ pub fn build(b: *std.Build) void {
 
     const target = b.resolveTargetQuery(cross);
 
+    const limine = b.dependency("limine", .{});
+
     const exe = b.addExecutable(.{ .name = "zros", .root_source_file = .{
         .path = "src/main.zig",
     }, .target = target, .optimize = optimize, .code_model = std.builtin.CodeModel.kernel });
     exe.pie = false;
     exe.linker_script = std.Build.LazyPath{ .path = "linker.ld" };
-    exe.addIncludePath(.{ .path = "./limine/limine.h" });
+    exe.root_module.addImport("limine", limine.module("limine"));
+
     std.fs.cwd().makePath("./zig-cache/nasm") catch {};
 
-    nasm_to("./src/gdt/gdt.s", "./zig-cache/nasm/gdt.o") catch |err| {
-        std.log.err("{}", .{err});
-        return;
-    };
+    try nasm_to(.{ .path_file = "./src/gdt/gdt.s", .file_name = "gdt" }, exe);
 
-    nasm_to("./src/idt/idt.s", "./zig-cache/nasm/idt.o") catch |err| {
-        std.log.err("{}", .{err});
-        return;
-    };
+    try nasm_to(.{ .path_file = "./src/idt/idt.s", .file_name = "idt" }, exe);
 
-    nasm_to("./src/idt/interrupt.s", "./zig-cache/nasm/interrupt.o") catch |err| {
-        std.log.err("{}", .{err});
-        return;
-    };
-
-    exe.addObjectFile(std.Build.LazyPath{ .path = "./zig-cache/nasm/gdt.o" });
-    exe.addObjectFile(std.Build.LazyPath{ .path = "./zig-cache/nasm/idt.o" });
-    exe.addObjectFile(std.Build.LazyPath{ .path = "./zig-cache/nasm/interrupt.o" });
+    try nasm_to(.{ .path_file = "./src/idt/interrupt.s", .file_name = "interrupt" }, exe);
 
     b.installArtifact(exe);
 

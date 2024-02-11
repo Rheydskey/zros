@@ -1,4 +1,7 @@
 [submodule "limine"]
 	path = limine
 	url = https://github.com/limine-bootloader/limine.git
-	branch = v5.x-branch-binary
+	branch = binary
+[submodule "limine-zig"]
+	path = limine-zig
+	url = https://github.com/limine-bootloader/limine-zig
