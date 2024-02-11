@@ -15,6 +15,7 @@ pub fn build(b: *std.Build) void {
         .os_tag = .freestanding,
         .abi = std.Target.Abi.none,
     };
+
     const x86features = std.Target.x86.Feature;
     cross.cpu_features_add.addFeature(@intFromEnum(x86features.soft_float));
     cross.cpu_features_sub.addFeature(@intFromEnum(x86features.mmx));
@@ -30,7 +31,7 @@ pub fn build(b: *std.Build) void {
     }, .target = target, .optimize = optimize, .code_model = std.builtin.CodeModel.kernel });
     exe.pie = false;
     exe.linker_script = std.Build.LazyPath{ .path = "linker.ld" };
-
+    exe.addIncludePath(.{ .path = "./limine/limine.h" });
     std.fs.cwd().makePath("./zig-cache/nasm") catch {};
 
     nasm_to("./src/gdt/gdt.s", "./zig-cache/nasm/gdt.o") catch |err| {

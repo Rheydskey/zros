@@ -5,6 +5,7 @@ const assembly = @import("./asm.zig");
 const keyboard = @import("keyboard.zig");
 const builtin = @import("std").builtin;
 const iter = @import("./iter.zig");
+const pmm = @import("./pmm.zig");
 
 pub fn panic(_: []const u8, _: ?*builtin.StackTrace, _: ?usize) noreturn {
     while (true) {}
@@ -19,11 +20,18 @@ pub fn main() !noreturn {
     asm volatile ("cli");
     serial.println("Start init", .{});
 
-    var range = iter.Range.exclusive(0, 10).iter();
+    var a: pmm.BitMapU8 = pmm.BitMapU8.new();
 
-    while (range.next()) |e| {
-        serial.print("{}\n", .{e});
-    }
+    a.init();
+
+    a.set(1);
+    a.set(2);
+    a.set(8);
+    a.set(81);
+    a.unset(2);
+    serial.println("{}", .{a.get(1)});
+    serial.println("{}", .{a.get(0)});
+    a.debug();
 
     gdt.init();
     try idt.init();
