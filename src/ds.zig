@@ -1,21 +1,87 @@
 const serial = @import("./serial.zig");
 const Range = @import("./iter.zig").Range;
 
+pub const BitMapU8 = struct {
+    entries: *u8,
+    size: usize,
+    next_free_block: usize = 0,
+
+    const bit_size: usize = @bitSizeOf(u8);
+    const Self = @This();
+
+    pub fn new(base: *void, s: usize) @This() {
+        return .{ .entries = @ptrCast(base), .size = s };
+    }
+
+    pub fn init(s: *@This()) void {
+        serial.println("Initializing bitmap", .{});
+        for (0..s.size) |i| {
+            s.entries[i] = 0;
+        }
+    }
+
+    pub fn set(self: *Self, nth: usize) void {
+        if (nth > self.size) {
+            return;
+        }
+
+        self.entries[nth / bit_size] |= @as(u8, 1) << @truncate(nth % bit_size);
+    }
+
+    pub fn unset(self: *Self, nth: usize) void {
+        if (nth > self.size) {
+            return;
+        }
+
+        // !(!0b11101 | 1 << 0) & 0b11101 = 0b11100
+        self.entries[nth / bit_size] &= ~(~self.entries[nth / bit_size] | @as(u8, 1) << @truncate(nth % bit_size));
+    }
+
+    pub fn get(self: *@This(), nth: usize) bool {
+        return ((self.entries[nth / bit_size] >> @truncate(nth % bit_size)) & 1) == 1;
+    }
+
+    /// Bool act like a result
+    pub fn alloc(self: *Self, range: Range) bool {
+        while (range.iter()) |i| {
+            if (i > self.entries.len) {
+                return false;
+            }
+
+            self.set(i);
+        }
+
+        true;
+    }
+
+    pub fn debug(self: Self) void {
+        serial.println("base: {x} size: {}", .{ self.entries, self.size });
+        for (0..self.size) |i| {
+            serial.print("{} => ", .{i});
+
+            const value: *u8 = @ptrFromInt(@intFromPtr(self.entries) + i);
+            serial.print("@{x} ", .{value});
+            serial.println("0b{b:0>8}", .{value.*});
+        }
+    }
+};
+
 pub fn BitMapU8_with_size(size: usize) type {
     return struct {
-        entries: [size]u8,
+        entries: *u8,
+        size: usize = size,
         next_free_block: usize = 0,
 
         const bit_size: usize = @bitSizeOf(u8);
         const Self = @This();
 
-        pub fn new() @This() {
-            return .{ .entries = undefined };
+        pub fn new(s: usize) @This() {
+            return .{ .entries = undefined, .size = s };
         }
 
         pub fn init(s: *@This()) void {
             serial.println("Initializing bitmap", .{});
-            for (0..s.entries.len) |i| {
+            for (0..s.size) |i| {
                 s.entries[i] = 0;
             }
         }

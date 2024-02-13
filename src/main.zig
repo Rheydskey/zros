@@ -5,8 +5,8 @@ const assembly = @import("./asm.zig");
 const keyboard = @import("keyboard.zig");
 const builtin = @import("std").builtin;
 const iter = @import("./iter.zig");
-const ds = @import("./ds.zig");
 const limine = @import("limine");
+const pmm = @import("./pmm.zig");
 
 const Color = extern struct {
     blue: u8,
@@ -28,6 +28,9 @@ pub fn main() !noreturn {
         asm volatile ("hlt");
         return error.CannotWrite;
     };
+
+    gdt.init();
+    try idt.init();
 
     if (framebuffer.response) |response| {
         if (response.framebuffer_count > 0) {
@@ -53,9 +56,17 @@ pub fn main() !noreturn {
     }
 
     if (memory_map.response) |response| {
+        const entries = response.entries();
+        const first = entries[0];
+        var last: *limine.MemoryMapEntry = undefined;
         for (response.entries()) |entry| {
-            serial.println("MMAP - base: {} length: {} kind: {}", .{ entry.base, entry.length, entry.kind });
+            serial.println("MMAP - base: 0x{X} length: {} kind: {}", .{ entry.base, entry.length, entry.kind });
+            last = entry;
         }
+
+        serial.println("base: {x}, lenght: {x}", .{ first.base, last.base + last.length });
+
+        pmm.pmm_init(@ptrFromInt(last.base), last.base);
     }
 
     serial.println("Start init", .{});
@@ -73,9 +84,6 @@ pub fn main() !noreturn {
     // serial.println("{}", .{a.get(1)});
     // serial.println("{}", .{a.get(0)});
     // a.debug();
-
-    gdt.init();
-    try idt.init();
 
     while (true) {
         const value = try serial.Serial.read();

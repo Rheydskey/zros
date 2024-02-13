@@ -17,6 +17,45 @@ pub const Interrupt = packed struct {
     code_err: u64,
 
     pub fn log(self: *const @This()) void {
+        const expections_name = [_][]const u8{
+            "Division by zero",
+            "Debug",
+            "Non-maskable Interrupt",
+            "Breakpoint",
+            "Overflow",
+            "Bound range Exceeded",
+            "Invalid Opcode",
+            "Device not available",
+            "Double fault",
+            "0x9",
+            "Invalid TSS",
+            "Segment not present",
+            "Stack-Segment Fault",
+            "General Protection fault",
+            "Page Fault",
+            "Reversed",
+            "x87 Floating-Point exception",
+            "Alignment check",
+            "Machine check",
+            "SIMD Floating-Point Excepction",
+            "Virtualization Exception",
+            "Control Protection Exception",
+            "Reserved",
+            "Reserved",
+            "Reserved",
+            "Reserved",
+            "Reserved",
+            "Hypervisor injection exception",
+            "VMM communcation exception",
+            "Security exception",
+            "Reserved",
+        };
+
+        if (self.interrupt < 31) {
+            serial.print("Interrupt no: {x} name: {s}\nError code : {x}\n", .{ self.interrupt, expections_name[self.interrupt], self.code_err });
+            return;
+        }
+
         serial.print("Interrupt no: {x}\nError code : {x}\n", .{ self.interrupt, self.code_err });
     }
 };
