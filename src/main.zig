@@ -7,6 +7,7 @@ const builtin = @import("std").builtin;
 const iter = @import("./iter.zig");
 const limine = @import("limine");
 const pmm = @import("./pmm.zig");
+const utils = @import("./utils.zig");
 
 const Color = extern struct {
     blue: u8,
@@ -19,7 +20,9 @@ export var base_revision: limine.BaseRevision = .{ .revision = 1 };
 export var framebuffer: limine.FramebufferRequest = .{};
 export var memory_map: limine.MemoryMapRequest = .{};
 
-pub fn panic(_: []const u8, _: ?*builtin.StackTrace, _: ?usize) noreturn {
+pub fn panic(msg: []const u8, _: ?*builtin.StackTrace, _: ?usize) noreturn {
+    serial.println("{s}", .{msg});
+    // serial.println("{s}", stacktrace.?.instruction_addresses);
     while (true) {}
 }
 
@@ -56,17 +59,7 @@ pub fn main() !noreturn {
     }
 
     if (memory_map.response) |response| {
-        const entries = response.entries();
-        const first = entries[0];
-        var last: *limine.MemoryMapEntry = undefined;
-        for (response.entries()) |entry| {
-            serial.println("MMAP - base: 0x{X} length: {} kind: {}", .{ entry.base, entry.length, entry.kind });
-            last = entry;
-        }
-
-        serial.println("base: {x}, lenght: {x}", .{ first.base, last.base + last.length });
-
-        pmm.pmm_init(@ptrFromInt(last.base), last.base);
+        pmm.pmm_init(response);
     }
 
     serial.println("Start init", .{});
