@@ -2,7 +2,7 @@ const serial = @import("./serial.zig");
 const Range = @import("./iter.zig").Range;
 
 pub const BitMapU8 = struct {
-    entries: *u8,
+    entries: [*]u8,
     size: usize,
     next_free_block: usize = 0,
 
@@ -10,6 +10,7 @@ pub const BitMapU8 = struct {
     const Self = @This();
 
     pub fn new(base: *void, s: usize) @This() {
+        serial.println("Create a bitmap of {}kb", .{s / 1024});
         return .{ .entries = @ptrCast(base), .size = s };
     }
 
@@ -41,17 +42,14 @@ pub const BitMapU8 = struct {
         return ((self.entries[nth / bit_size] >> @truncate(nth % bit_size)) & 1) == 1;
     }
 
-    /// Bool act like a result
-    pub fn alloc(self: *Self, range: Range) bool {
+    pub fn alloc(self: *Self, range: Range) !void {
         while (range.iter()) |i| {
             if (i > self.entries.len) {
-                return false;
+                return error.NotEnoughtMemory;
             }
 
             self.set(i);
         }
-
-        true;
     }
 
     pub fn debug(self: Self) void {

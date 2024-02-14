@@ -3,6 +3,9 @@ const utils = @import("./utils.zig");
 const serial = @import("./serial.zig");
 const limine = @import("limine");
 
+const MMAP_IO_BASE = 0xffff800000000000;
+const MMAP_IO_KERNEL = 0xffffffff80000000;
+
 const PAGE_SIZE = 0x1000; // 0x1000 = 4Kb
 
 var bitmap: ?ds.BitMapU8 = null;
@@ -33,6 +36,6 @@ pub fn pmm_init(mmap: *limine.MemoryMapResponse) void {
 
     serial.println("base: {x}, lenght: {x}", .{ first.base, last.base + last.length });
 
-    bitmap = ds.BitMapU8.new(@ptrFromInt(first_usable.?.base), bm_length);
-    bitmap.?.debug();
+    bitmap = ds.BitMapU8.new(@ptrFromInt(first_usable.?.base + MMAP_IO_BASE), bm_length);
+    bitmap.?.init();
 }
