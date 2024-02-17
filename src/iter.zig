@@ -20,8 +20,8 @@ pub const Iterator = struct {
 };
 
 pub const Range = struct {
-    start: usize,
-    end: usize,
+    start: u64,
+    end: u64,
     inclusive: bool,
     const Self = @This();
 
@@ -47,6 +47,10 @@ pub const Range = struct {
         return Iterator{
             .range = self,
         };
+    }
+
+    pub fn len(self: *@This()) u64 {
+        return self.end - self.start;
     }
 };
 

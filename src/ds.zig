@@ -17,7 +17,7 @@ pub const BitMapU8 = struct {
     pub fn init(s: *@This()) void {
         serial.println("Initializing bitmap", .{});
         for (0..s.size) |i| {
-            s.entries[i] = 0;
+            s.entries[i] = 1;
         }
     }
 
@@ -30,16 +30,37 @@ pub const BitMapU8 = struct {
     }
 
     pub fn unset(self: *Self, nth: usize) void {
+        // serial.println("Try unset : {}", .{nth});
         if (nth > self.size) {
             return;
         }
 
-        // !(!0b11101 | 1 << 0) & 0b11101 = 0b11100
-        self.entries[nth / bit_size] &= ~(~self.entries[nth / bit_size] | @as(u8, 1) << @truncate(nth % bit_size));
+        self.entries[nth / bit_size] &= ~(@as(u8, 1) << @truncate(nth % bit_size));
     }
 
     pub fn get(self: *@This(), nth: usize) bool {
         return ((self.entries[nth / bit_size] >> @truncate(nth % bit_size)) & 1) == 1;
+    }
+
+    pub fn unset_range(self: *Self, range: Range) !void {
+        var iterator = range.iter();
+        while (iterator.next()) |i| {
+            if (i > self.size * 8) {
+                return error.NotEnoughtMemory;
+            }
+
+            self.unset(i);
+        }
+    }
+
+    pub fn set_range(self: *Self, range: Range) !void {
+        while (range.iter()) |i| {
+            if (i > self.entries.len) {
+                return error.NotEnoughtMemory;
+            }
+
+            self.set(i);
+        }
     }
 
     pub fn alloc(self: *Self, range: Range) !void {
@@ -52,15 +73,20 @@ pub const BitMapU8 = struct {
         }
     }
 
-    pub fn debug(self: Self) void {
-        serial.println("base: {x} size: {}", .{ self.entries, self.size });
-        for (0..self.size) |i| {
-            serial.print("{} => ", .{i});
+    pub fn debug(self: *Self) void {
+        serial.println("base: {x} size: {}", .{ &self.entries[0], self.size });
 
-            const value: *u8 = @ptrFromInt(@intFromPtr(self.entries) + i);
-            serial.print("@{x} ", .{value});
-            serial.println("0b{b:0>8}", .{value.*});
+        var start: u64 = 0;
+        var state = self.get(start);
+        for (0..self.size) |i| {
+            if (state != self.get(i)) {
+                serial.println("0x{x} - 0x{x} : {}", .{ start, start + i, !state });
+                state = !state;
+                start = start + i + 1;
+            }
         }
+
+        serial.println("0x{x} - 0x{x} : {}", .{ start, self.size - start, !state });
     }
 };
 

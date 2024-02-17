@@ -19,6 +19,7 @@ const Color = extern struct {
 export var base_revision: limine.BaseRevision = .{ .revision = 1 };
 export var framebuffer: limine.FramebufferRequest = .{};
 export var memory_map: limine.MemoryMapRequest = .{};
+export var hhdm: limine.HhdmRequest = .{};
 
 pub fn panic(msg: []const u8, _: ?*builtin.StackTrace, _: ?usize) noreturn {
     serial.println("{s}", .{msg});
@@ -59,7 +60,7 @@ pub fn main() !noreturn {
     }
 
     if (memory_map.response) |response| {
-        pmm.pmm_init(response);
+        pmm.pmm_init(response, hhdm.response.?);
     }
 
     serial.println("Start init", .{});
