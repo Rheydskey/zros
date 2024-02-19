@@ -47,29 +47,11 @@ pub fn handle(scancode: u8) void {
     const event = event2enum(scancode);
 
     switch (event) {
-        KeyboardEvent.Esc => {
-            _ = serial.Serial.write_array("Escape");
-        },
-        KeyboardEvent.Back => {
-            _ = serial.Serial.write_array("Back");
-        },
-        KeyboardEvent.Enter => {
-            _ = serial.Serial.write_array("Enter");
-        },
-        KeyboardEvent.Shift => {
-            _ = serial.Serial.write_array("Shift");
-        },
-        KeyboardEvent.Space => {
-            _ = serial.Serial.write_array("Space");
-        },
-        KeyboardEvent.Ctrl => {
-            _ = serial.Serial.write_array("Ctrl");
-        },
-        KeyboardEvent.Other => {
-            _ = serial.Serial.write_array("Other");
-        },
         KeyboardEvent.Key => {
             _ = serial.Serial.write(KEYBOARDMAP[scancode]);
+        },
+        else => {
+            serial.println("{s}", .{@tagName(event)});
         },
     }
 }
