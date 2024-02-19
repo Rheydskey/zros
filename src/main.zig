@@ -33,6 +33,7 @@ pub fn main() !noreturn {
         return error.CannotWrite;
     };
 
+    serial.println("HHDM offset: {x}", .{hhdm.response.?.offset});
     gdt.init();
     try idt.init();
 
@@ -64,20 +65,6 @@ pub fn main() !noreturn {
     }
 
     serial.println("Start init", .{});
-    // const BitMapU8sized = ds.BitMapU8_with_size(8);
-
-    // var a = BitMapU8sized.new();
-
-    // a.init();
-
-    // a.set(1);
-    // a.set(2);
-    // a.set(8);
-    // a.set(81);
-    // a.unset(2);
-    // serial.println("{}", .{a.get(1)});
-    // serial.println("{}", .{a.get(0)});
-    // a.debug();
 
     while (true) {
         const value = try serial.Serial.read();
