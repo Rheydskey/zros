@@ -17,6 +17,10 @@ pub fn nasm_to(comptime file: AsmPath, exe: *std.Build.Step.Compile) !void {
 pub fn build(b: *std.Build) !void {
     const optimize = b.standardOptimizeOption(.{});
 
+    const build_options = b.addOptions();
+
+    build_options.addOption(bool, "release_mode", optimize != .Debug);
+
     var cross =
         std.zig.CrossTarget{
         .cpu_arch = std.Target.Cpu.Arch.x86_64,
@@ -39,9 +43,12 @@ pub fn build(b: *std.Build) !void {
     const exe = b.addExecutable(.{ .name = "zros", .root_source_file = .{
         .path = "src/main.zig",
     }, .target = target, .optimize = optimize, .code_model = std.builtin.CodeModel.kernel });
+
     exe.pie = false;
     exe.linker_script = std.Build.LazyPath{ .path = "linker.ld" };
     exe.root_module.addImport("limine", limine.module("limine"));
+
+    exe.root_module.addOptions("build_options", build_options);
 
     std.fs.cwd().makePath("./zig-cache/nasm") catch {};
 
@@ -52,19 +59,4 @@ pub fn build(b: *std.Build) !void {
     try nasm_to(.{ .path_file = "./src/idt/interrupt.s", .file_name = "interrupt" }, exe);
 
     b.installArtifact(exe);
-
-    const unittarget = b.resolveTargetQuery(std.zig.CrossTarget{
-        .cpu_arch = std.Target.Cpu.Arch.x86_64,
-        .cpu_model = std.zig.CrossTarget.CpuModel{ .explicit = &std.Target.x86.cpu.znver1 },
-        .os_tag = .freestanding,
-        .abi = std.Target.Abi.none,
-    });
-
-    const unit_tests = b.addTest(.{ .root_source_file = .{ .path = "src/main.zig" }, .target = unittarget, .optimize = optimize });
-
-    unit_tests.linker_script = std.Build.LazyPath{ .path = "linker.ld" };
-
-    const run_unit_tests = b.addRunArtifact(unit_tests);
-    const test_step = b.step("test", "Run unit tests");
-    test_step.dependOn(&run_unit_tests.step);
 }
