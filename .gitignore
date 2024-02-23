@@ -4,3 +4,5 @@ iso_root
 bx_enh_dbg.ini
 .vscode
 zros.hdd
+limine
+limine-zig
