@@ -8,6 +8,7 @@ const iter = @import("./iter.zig");
 const limine = @import("limine");
 const pmm = @import("./pmm.zig");
 const utils = @import("./utils.zig");
+const build_options = @import("build_options");
 
 const Color = extern struct {
     blue: u8,
@@ -21,9 +22,37 @@ export var framebuffer: limine.FramebufferRequest = .{};
 export var memory_map: limine.MemoryMapRequest = .{};
 export var hhdm: limine.HhdmRequest = .{};
 
+const Stacktrace = struct {
+    next: *Stacktrace,
+    addr: u64,
+};
+
+// Only works in debug mode (TODO: Make this working in release mode)
+pub fn stacktrace() void {
+    if (build_options.release_mode) {
+        serial.println("No stacktrace in release mode", .{});
+        return;
+    }
+
+    serial.println("Stacktrace:", .{});
+
+    var rbp: *Stacktrace = @ptrFromInt(@frameAddress());
+
+    var i: u32 = 0;
+    while (@intFromPtr(rbp.next) != 0x0) {
+        serial.println("{}: 0x{X}", .{ i, rbp.addr });
+        rbp = rbp.next;
+        i += 1;
+    }
+}
+
 pub fn panic(msg: []const u8, _: ?*builtin.StackTrace, _: ?usize) noreturn {
-    serial.println("{s}", .{msg});
-    // serial.println("{s}", stacktrace.?.instruction_addresses);
+    serial.println(
+        \\====== This is a panic message ======
+        \\{s}
+    , .{msg});
+    stacktrace();
+
     while (true) {}
 }
 
