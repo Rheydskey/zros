@@ -9,18 +9,18 @@ const limine = @import("limine");
 const pmm = @import("./pmm.zig");
 const utils = @import("./utils.zig");
 const build_options = @import("build_options");
+const vmm = @import("./vmm.zig");
+const fb = @import("fbscreen.zig");
+const limine_rq = @import("limine_rq.zig");
+const acpi = @import("./acpi.zig");
 
-const Color = extern struct {
-    blue: u8,
-    green: u8,
-    red: u8,
-    alpha: u8 = 255,
-};
-
-export var base_revision: limine.BaseRevision = .{ .revision = 1 };
-export var framebuffer: limine.FramebufferRequest = .{};
-export var memory_map: limine.MemoryMapRequest = .{};
-export var hhdm: limine.HhdmRequest = .{};
+pub fn screenfiller(x: u64, y: u64) fb.Color {
+    return .{
+        .blue = @truncate(x ^ y),
+        .red = @truncate((y * 2) ^ (x * 2)),
+        .green = @truncate((y * 4) ^ (x * 4)),
+    };
+}
 
 const Stacktrace = struct {
     next: *Stacktrace,
@@ -62,38 +62,31 @@ pub fn main() !noreturn {
         return error.CannotWrite;
     };
 
-    serial.println("HHDM offset: {x}", .{hhdm.response.?.offset});
     gdt.init();
-    try idt.init();
+    idt.init();
 
-    if (framebuffer.response) |response| {
+    if (limine_rq.memory_map.response) |response| {
+        try pmm.pmm_init(response, limine_rq.hhdm.response.?);
+    }
+
+    try vmm.init(limine_rq.hhdm.response.?);
+
+    if (limine_rq.framebuffer.response) |response| {
         if (response.framebuffer_count > 0) {
-            const fb = response.framebuffers_ptr[0];
-            const fb_addr = fb.address;
-
-            serial.println("{*} is size of {}*{}", .{ fb_addr, fb.height, fb.width });
-            var offset: u64 = 0;
-            for (0..fb.height) |y| {
-                for (0..fb.width) |x| {
-                    const color: Color = .{
-                        .blue = @truncate(x ^ y),
-                        .red = @truncate((y * 2) ^ (x * 2)),
-                        .green = @truncate((y * 4) ^ (x * 4)),
-                    };
-
-                    @as(*u32, @ptrCast(@alignCast(fb_addr + offset))).* = @bitCast(color);
-
-                    offset += 4;
-                }
-            }
+            const framebuf = response.framebuffers_ptr[0];
+            fb.fb_ptr = fb.Framebuffer.init(@intFromPtr(framebuf.address), framebuf.height, framebuf.width);
         }
     }
 
-    if (memory_map.response) |response| {
-        pmm.pmm_init(response, hhdm.response.?);
-    }
+    try acpi.init();
 
-    serial.println("Start init", .{});
+    serial.println("{s}", .{acpi.rspd.?.signature});
+
+    const apic = try acpi.rspt.?.get_apic();
+
+    serial.println("{d}", .{apic.lapic_addr});
+
+    try fb.fb_ptr.?.fillWith(screenfiller);
 
     while (true) {
         const value = try serial.Serial.read();
@@ -103,6 +96,9 @@ pub fn main() !noreturn {
     }
 }
 
-export fn _start() void {
-    main() catch {};
+export fn _start() noreturn {
+    main() catch |i| {
+        serial.println("{}", .{i});
+    };
+    while (true) {}
 }

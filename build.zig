@@ -44,10 +44,11 @@ pub fn build(b: *std.Build) !void {
         .path = "src/main.zig",
     }, .target = target, .optimize = optimize, .code_model = std.builtin.CodeModel.kernel });
 
+    // exe.linkage = .static;
     exe.pie = false;
+
     exe.linker_script = std.Build.LazyPath{ .path = "linker.ld" };
     exe.root_module.addImport("limine", limine.module("limine"));
-
     exe.root_module.addOptions("build_options", build_options);
 
     std.fs.cwd().makePath("./zig-cache/nasm") catch {};

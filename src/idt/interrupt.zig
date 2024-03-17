@@ -3,6 +3,7 @@ const serial = @import("../serial.zig");
 const assembly = @import("../asm.zig");
 const keyboard_handle = @import("../keyboard.zig").handle;
 const pic = @import("../pic.zig");
+const std = @import("std");
 
 pub extern var interrupt_vector: [256]usize;
 
@@ -52,11 +53,11 @@ pub const Interrupt = packed struct {
         };
 
         if (self.interrupt < 31) {
-            serial.print("Interrupt no: {x} name: {s}\nError code : {x}\n", .{ self.interrupt, expections_name[self.interrupt], self.code_err });
+            std.debug.panic("Interrupt no: {x} name: {s}\nError code : {x}\n", .{ self.interrupt, expections_name[self.interrupt], self.code_err });
             return;
         }
 
-        serial.print("Interrupt no: {x}\nError code : {x}\n", .{ self.interrupt, self.code_err });
+        std.debug.panic("Interrupt no: {x}\nError code : {x}\n", .{ self.interrupt, self.code_err });
     }
 };
 

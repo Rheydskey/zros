@@ -63,7 +63,7 @@ pub const IdtEntry = packed struct(u128) {
     };
 };
 
-pub fn init() !void {
+pub fn init() void {
     asm volatile ("cli");
     serial.print("Start IDT init\n", .{});
 

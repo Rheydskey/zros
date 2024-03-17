@@ -4,13 +4,14 @@ const utils = @import("./utils.zig");
 const serial = @import("./serial.zig");
 const limine = @import("limine");
 
-const PAGE_SIZE = 0x1000; // 0x1000 = 4Kb
+pub const PAGE_SIZE = 0x1000; // 0x1000 = 4Kb
 
-pub var bitmap: ?ds.BitMapU8 = null;
-pub var last_usable_page: u64 = 0;
-pub var base: ?u64 = null;
+var bitmap: ?ds.BitMapU8 = null;
+var last_usable_page: u64 = 0;
+var base: ?u64 = null;
+var available: u64 = 0;
 
-fn find_block_for_bitmap(mmap: *limine.MemoryMapResponse, bitmap_size: u64) ?*limine.MemoryMapEntry {
+fn find_block_for_bitmap(mmap: *limine.MemoryMapResponse, bitmap_size: u64) !*limine.MemoryMapEntry {
     for (mmap.entries()) |entry| {
         if (entry.kind != limine.MemoryMapEntryType.usable) {
             continue;
@@ -21,10 +22,10 @@ fn find_block_for_bitmap(mmap: *limine.MemoryMapResponse, bitmap_size: u64) ?*li
         }
     }
 
-    return null;
+    return error.NotEnoughtMem;
 }
 
-pub fn pmm_init(mmap: *limine.MemoryMapResponse, hhdm: *limine.HhdmResponse) void {
+pub fn pmm_init(mmap: *limine.MemoryMapResponse, hhdm: *limine.HhdmResponse) !void {
     base = hhdm.offset;
     const entries = mmap.entries();
     var highest_addr: u64 = 0;
@@ -55,7 +56,7 @@ pub fn pmm_init(mmap: *limine.MemoryMapResponse, hhdm: *limine.HhdmResponse) voi
 
     const bitmap_size = utils.align_up(highest_addr / PAGE_SIZE / 8, PAGE_SIZE);
 
-    var bitmap_block = find_block_for_bitmap(mmap, bitmap_size).?;
+    var bitmap_block = try find_block_for_bitmap(mmap, bitmap_size);
 
     bitmap = ds.BitMapU8.new(@ptrFromInt(bitmap_block.base + hhdm.offset), bitmap_size);
     bitmap.?.init();
@@ -77,14 +78,19 @@ pub fn pmm_init(mmap: *limine.MemoryMapResponse, hhdm: *limine.HhdmResponse) voi
 
     bitmap.?.debug();
 
-    serial.println("[ OK ] PMM", .{});
+    serial.print_ok("PMM", .{});
 }
 
-pub fn alloc(size: usize) ?*void {
+pub fn available_page() u64 {
+    return available;
+}
+
+pub fn alloc(size: usize) !*void {
     // TODO: OPTIMIZATION
     const size_needed: u64 = size / PAGE_SIZE;
     var length_free_block: u64 = 0;
 
+    // debug();
     for (0..bitmap.?.size) |i| {
         if (bitmap.?.get(i) == ds.State.Used) {
             length_free_block = 0;
@@ -93,13 +99,13 @@ pub fn alloc(size: usize) ?*void {
 
         if (size_needed <= length_free_block) {
             bitmap.?.set_range(.{ .start = i - length_free_block, .end = i, .inclusive = true }) catch {};
-            return @ptrFromInt(base.? + (i - length_free_block) * PAGE_SIZE);
+            return @ptrFromInt((i - length_free_block) * PAGE_SIZE);
         }
 
         length_free_block += 1;
     }
 
-    return null;
+    return error.NotEnoughtMem;
 }
 
 pub fn free(ptr: *void, size: usize) !void {
@@ -107,4 +113,8 @@ pub fn free(ptr: *void, size: usize) !void {
     for (from..from + size) |i| {
         bitmap.?.unset(i / 4096);
     }
+}
+
+pub fn debug() void {
+    bitmap.?.debug();
 }
