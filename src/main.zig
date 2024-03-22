@@ -80,12 +80,6 @@ pub fn main() !noreturn {
 
     try acpi.init();
 
-    serial.println("{s}", .{acpi.rspd.?.signature});
-
-    const apic = try acpi.rspt.?.get_apic();
-
-    serial.println("{d}", .{apic.lapic_addr});
-
     try fb.fb_ptr.?.fillWith(screenfiller);
 
     while (true) {
