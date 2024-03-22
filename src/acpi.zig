@@ -4,8 +4,9 @@ const limine_rq = @import("./limine_rq.zig");
 const std = @import("std");
 
 pub var rspt: ?*align(1) Rspt = undefined;
-pub var rspd: ?*align(1) Rspd = undefined;
+pub var rsdp: ?*align(1) Rsdp = undefined;
 pub var madt: ?*align(1) Madt = undefined;
+pub var xspt: ?*align(1) Xspt = undefined;
 
 const AcpiSDT = extern struct {
     signature: [4]u8,
@@ -22,6 +23,32 @@ const AcpiSDT = extern struct {
         if (!(@sizeOf(@This()) == 36)) {
             @compileError("Bad size for" ++ @typeName(@This()));
         }
+    }
+};
+
+const Xspt = extern struct {
+    header: AcpiSDT,
+    stdAddr: [0]u64 align(4),
+
+    pub inline fn length(self: *align(1) @This()) u64 {
+        return @divExact(self.header.length - @sizeOf(AcpiSDT), @sizeOf(u64));
+    }
+
+    pub fn get(self: *align(1) @This(), name: *const []const u8) !*Xspt {
+        const entries = @as([*]u64, &self.stdAddr)[0..self.length()];
+        for (entries) |entry| {
+            const ptr: *Xspt = @ptrFromInt(entry + limine_rq.hhdm.response.?.offset);
+
+            if (std.mem.eql(u8, &ptr.header.signature, name.*)) {
+                return ptr;
+            }
+        }
+
+        return error.NotFound;
+    }
+
+    pub fn get_apic(self: *align(1) @This()) !*align(1) Madt {
+        return @ptrCast(try self.get(&"APIC"));
     }
 };
 
@@ -136,7 +163,7 @@ const Madt = extern struct {
     };
 };
 
-const Rspd = extern struct {
+const Rsdp = extern struct {
     signature: [8]u8,
     checksum: u8,
     oem_id: [6]u8,
@@ -148,15 +175,17 @@ const Rspd = extern struct {
     reserved: [3]u8,
 
     comptime {
-        if (!(@sizeOf(Rspd) == @sizeOf(u288))) {
+        if (!(@sizeOf(Rsdp) == @sizeOf(u288))) {
             @compileError("Bad size for Rspd");
         }
     }
 
-    pub inline fn get_xsdt(self: *@This()) !void {
+    pub inline fn get_xsdt(self: *align(1) @This()) !*align(1) Xspt {
         if (self.revision <= 1) {
             return error.RevisionTooLow;
         }
+
+        return @ptrFromInt(self.xsdt + limine_rq.hhdm.response.?.offset);
     }
 
     pub inline fn get_rsdt(self: *align(1) @This()) !*align(1) Rspt {
@@ -168,7 +197,7 @@ const Rspd = extern struct {
     }
 };
 
-pub fn get_rspd() !*Rspd {
+pub fn get_rspd() !*Rsdp {
     const response = limine_rq.rspd.response orelse return error.NoRspd;
     return @alignCast(@ptrCast(response.address));
 }
@@ -176,14 +205,20 @@ pub fn get_rspd() !*Rspd {
 pub fn init() !void {
     const response = limine_rq.rspd.response orelse return error.NoRspd;
 
-    rspd = @alignCast(@ptrCast(response.address));
+    rsdp = @alignCast(@ptrCast(response.address));
 
-    serial.println("{any}", .{rspd});
-    rspt = try rspd.?.get_rsdt();
+    serial.println("{any}", .{rsdp});
+    if (rsdp.?.revision > 1) {
+        xspt = try rsdp.?.get_xsdt();
+        serial.println("{any}", .{xspt});
 
-    serial.println("{any}", .{rspt});
+        madt = try xspt.?.get_apic();
+    } else {
+        rspt = try rsdp.?.get_rsdt();
+        serial.println("{any}", .{rspt});
 
-    madt = try rspt.?.get_apic();
+        madt = try rspt.?.get_apic();
+    }
 
     madt.?.read_entries();
     const ioapic = try madt.?.get_ioapic();
