@@ -4,6 +4,7 @@ const assembly = @import("../asm.zig");
 const keyboard_handle = @import("../keyboard.zig").handle;
 const pic = @import("../pic.zig");
 const std = @import("std");
+const lapic = @import("../lapic.zig");
 
 pub extern var interrupt_vector: [256]usize;
 
@@ -16,6 +17,14 @@ pub const Regs = packed struct {
     rbp: u64,
     rsi: u64,
     rdi: u64,
+    r8: u64,
+    r9: u64,
+    r10: u64,
+    r11: u64,
+    r12: u64,
+    r13: u64,
+    r14: u64,
+    r15: u64,
 };
 
 pub const Interrupt = packed struct {
@@ -62,16 +71,38 @@ pub const Interrupt = packed struct {
     }
 };
 
-pub fn irq_handler() void {}
+var last_irq: ?u64 = null;
+var nb: u32 = 0;
+
+pub fn irq_handler(interrupt: *const Interrupt) void {
+    if (last_irq) |irq_num| {
+        if (irq_num == interrupt.interrupt) {
+            nb += 1;
+            serial.println("\x1b[1F\x1B[2K({:0>4}x)irq: {}", .{ nb, interrupt.interrupt });
+            return;
+        }
+    }
+
+    serial.println("irq: {}", .{interrupt.interrupt});
+    nb = 0;
+    last_irq = interrupt.interrupt;
+}
+
+pub var a = false;
 
 pub export fn interrupt_handler(rsp: u64) callconv(.C) u64 {
     const reg: *Interrupt = @ptrFromInt(rsp);
 
-    if (reg.interrupt <= 32) {
+    if (reg.interrupt < 32) {
         reg.log();
     } else if (reg.interrupt <= 32 + 15) {
-        serial.println("Interrupt {}", .{reg.interrupt});
-        irq_handler();
+        irq_handler(reg);
+    } else {
+        serial.println("{}", .{reg.interrupt});
+    }
+
+    if (lapic.lapic) |_lapic| {
+        _lapic.end_of_interrupt();
     }
 
     return rsp;
@@ -93,9 +124,4 @@ pub export fn keyboard(interrupt: *const InterruptStackFrame) callconv(.C) void 
     pic.end_of_pic1();
 
     asm volatile ("sti");
-}
-
-pub export fn pit(interrupt: *const InterruptStackFrame) callconv(.C) void {
-    _ = interrupt;
-    return;
 }

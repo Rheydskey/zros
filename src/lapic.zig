@@ -2,21 +2,22 @@ const serial = @import("serial.zig");
 const acpi = @import("./acpi.zig");
 const limine = @import("./limine_rq.zig");
 const asm_utils = @import("utils.zig");
+const hpet = @import("./hpet.zig");
 
-const lapic: ?Lapic = null;
+pub var lapic: ?Lapic = null;
 
 const Lapic = struct {
     addr: u64,
 
-    fn read(self: *@This(), reg: u32) u32 {
+    fn read(self: *const @This(), reg: u32) u32 {
         return @as(*align(1) volatile u32, @ptrFromInt(self.addr + reg)).*;
     }
 
-    fn write(self: *@This(), reg: u32, value: u32) void {
+    fn write(self: *const @This(), reg: u32, value: u32) void {
         @as(*align(1) volatile u32, @ptrFromInt(self.addr + reg)).* = value;
     }
 
-    fn end_of_interrupt(self: @This()) void {
+    pub fn end_of_interrupt(self: @This()) void {
         self.write(Regs.EOI, 0);
     }
 
@@ -32,16 +33,53 @@ const Lapic = struct {
         const TIMER_DIV = 0x3e0;
     };
 
+    const ApicTimer = struct {
+        const MASKED = 0x1000;
+
+        const LAPIC_TIMER_IRQ = 32;
+        const LAPIC_TIMER_PERIODIC = 0x20000;
+
+        const Divisor = struct {
+            const APIC_TIMER_DIVIDE_BY_2 = 0;
+            const APIC_TIMER_DIVIDE_BY_4 = 1;
+            const APIC_TIMER_DIVIDE_BY_8 = 2;
+            const APIC_TIMER_DIVIDE_BY_16 = 3;
+            const APIC_TIMER_DIVIDE_BY_32 = 4;
+            const APIC_TIMER_DIVIDE_BY_64 = 5;
+            const APIC_TIMER_DIVIDE_BY_128 = 6;
+            const APIC_TIMER_DIVIDE_BY_1 = 7;
+        };
+    };
+
     const LAPIC_ENABLED = 0x800;
     const MSR_APIC_BASE = 0x1B;
     const SPURIOUS_ALL = 0xFF;
     const SPURIOUS_ENABLE_APIC = 0x100;
 };
 
-pub fn init() void {
-    var addr: Lapic = .{ .addr = acpi.madt.?.lapic_addr + limine.hhdm.response.?.offset };
-    serial.println("lapic: {any}", .{addr});
+pub fn init() !void {
+    lapic = .{ .addr = acpi.madt.?.lapic_addr + limine.hhdm.response.?.offset };
+    serial.println("lapic: {any}", .{lapic});
 
-    addr.write(Lapic.MSR_APIC_BASE, @truncate((asm_utils.read_msr(Lapic.MSR_APIC_BASE) | Lapic.LAPIC_ENABLED) & ~@as(u64, 1 << 10)));
-    addr.write(Lapic.Regs.SPURIOUS, addr.read(Lapic.Regs.SPURIOUS) | Lapic.SPURIOUS_ALL | Lapic.SPURIOUS_ENABLE_APIC);
+    lapic.?.write(Lapic.MSR_APIC_BASE, @truncate((asm_utils.read_msr(Lapic.MSR_APIC_BASE) | Lapic.LAPIC_ENABLED) & ~@as(u64, 1 << 10)));
+    lapic.?.write(Lapic.Regs.SPURIOUS, lapic.?.read(Lapic.Regs.SPURIOUS) | Lapic.SPURIOUS_ALL | Lapic.SPURIOUS_ENABLE_APIC);
+}
+
+pub fn init_timer() void {
+    var addr: Lapic = .{ .addr = acpi.madt.?.lapic_addr + limine.hhdm.response.?.offset };
+
+    addr.write(Lapic.Regs.TIMER_DIV, Lapic.ApicTimer.Divisor.APIC_TIMER_DIVIDE_BY_16);
+    addr.write(Lapic.Regs.TIMER_INITCNT, 0xFFFF_FFFF);
+
+    hpet.hpet.?.sleep(10);
+
+    addr.write(Lapic.Regs.LVT_TIMER, Lapic.ApicTimer.MASKED);
+
+    const tick_in_10ms = 0xFFFF_FFFF - addr.read(Lapic.Regs.TIMER_CURRCNT);
+
+    addr.write(Lapic.Regs.LVT_TIMER, Lapic.ApicTimer.LAPIC_TIMER_IRQ | Lapic.ApicTimer.LAPIC_TIMER_PERIODIC);
+
+    addr.write(Lapic.Regs.TIMER_DIV, Lapic.ApicTimer.Divisor.APIC_TIMER_DIVIDE_BY_16);
+
+    addr.write(Lapic.Regs.TIMER_INITCNT, tick_in_10ms / 10);
 }

@@ -249,9 +249,11 @@ pub fn init() !void {
 
     madt.?.read_entries();
 
-    lapic.init();
+    try lapic.init();
     try hpet.init();
 
     var io_apic = (try madt.?.get_ioapic()).ioapic;
     io_apic.init();
+
+    lapic.init_timer();
 }
