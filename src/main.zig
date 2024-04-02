@@ -13,6 +13,8 @@ const vmm = @import("./vmm.zig");
 const fb = @import("fbscreen.zig");
 const limine_rq = @import("limine_rq.zig");
 const acpi = @import("./acpi.zig");
+const hpet = @import("./hpet.zig");
+const lapic = @import("./lapic.zig");
 
 pub fn screenfiller(x: u64, y: u64) fb.Color {
     return .{
@@ -94,5 +96,7 @@ export fn _start() noreturn {
     main() catch |i| {
         serial.println("{}", .{i});
     };
-    while (true) {}
+    while (true) {
+        asm volatile ("hlt");
+    }
 }

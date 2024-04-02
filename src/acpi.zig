@@ -1,14 +1,20 @@
+const lapic = @import("./lapic.zig");
+const ioapic = @import("./ioapic.zig");
 const serial = @import("serial.zig");
 const limine = @import("limine");
 const limine_rq = @import("./limine_rq.zig");
 const std = @import("std");
+const hpet = @import("hpet.zig");
+const outb = @import("./asm.zig").outb;
+const PIC1 = @import("./pic.zig").PIC1;
+const PIC2 = @import("./pic.zig").PIC2;
 
 pub var rspt: ?*align(1) Rspt = undefined;
 pub var rsdp: ?*align(1) Rsdp = undefined;
 pub var madt: ?*align(1) Madt = undefined;
 pub var xspt: ?*align(1) Xspt = undefined;
 
-const AcpiSDT = extern struct {
+pub const AcpiSDT = extern struct {
     signature: [4]u8,
     length: u32,
     revision: u8,
@@ -84,7 +90,7 @@ const Rspt = extern struct {
     }
 };
 
-const Madt = extern struct {
+pub const Madt = extern struct {
     header: AcpiSDT,
     lapic_addr: u32,
     flags: u32,
@@ -99,24 +105,44 @@ const Madt = extern struct {
 
             switch (entry.?.entry_type) {
                 0 => {
-                    const ioapic: *align(1) Madt.ProcessorLocalApic = @ptrCast(entry);
-                    serial.println("{any}", .{ioapic});
+                    const lapic_entry: *align(1) Madt.ProcessorLocalApic = @ptrCast(entry);
+                    serial.println("{any}", .{lapic_entry});
                 },
                 1 => {
-                    const ioapic: *align(1) Madt.IoApic = @ptrCast(entry);
-                    serial.println("{any}", .{ioapic});
+                    const ioapic_struct: *align(1) Madt.IoApic = @ptrCast(entry);
+                    serial.println("{any}", .{ioapic_struct});
                 },
 
                 2 => {
-                    const ioapic: *align(1) Madt.Iso = @ptrCast(entry);
-                    serial.println("{any}", .{ioapic});
+                    const iso: *align(1) Madt.Iso = @ptrCast(entry);
+                    serial.println("{any}", .{iso});
                 },
 
-                else => {},
+                else => {
+                    serial.println("UNSUPPORTED ({})", .{entry.?.entry_type});
+                },
             }
 
             i += @max(@sizeOf(MadtEntryHeader), entry.?.length);
         }
+    }
+
+    pub fn get_iso(self: *align(1) @This(), irq: u8) ?*align(1) Iso {
+        var entry: ?*Madt.MadtEntryHeader = undefined;
+        var i: usize = 0;
+        while (i < self.header.length - @sizeOf(@This())) {
+            entry = @ptrFromInt(@intFromPtr(&self.entries) + i);
+            if (entry.?.entry_type == 2) {
+                const iso: *align(1) Madt.Iso = @ptrCast(entry);
+                if (iso.irq_src == irq) {
+                    return iso;
+                }
+            }
+
+            i += @max(@sizeOf(MadtEntryHeader), entry.?.length);
+        }
+
+        return null;
     }
 
     pub fn get_ioapic(self: *align(1) @This()) !*align(1) IoApic {
@@ -150,10 +176,7 @@ const Madt = extern struct {
 
     pub const IoApic = packed struct {
         header: Madt.MadtEntryHeader,
-        ioapic_id: u8,
-        reserved: u8,
-        ioapic_addr: u32,
-        gsib: u32,
+        ioapic: ioapic.IoApic,
     };
 
     pub const ProcessorLocalApic = packed struct {
@@ -203,6 +226,10 @@ pub fn get_rspd() !*Rsdp {
 }
 
 pub fn init() !void {
+    // Disabling PIC
+    outb(PIC1.data, 0xff);
+    outb(PIC2.data, 0xff);
+
     const response = limine_rq.rspd.response orelse return error.NoRspd;
 
     rsdp = @alignCast(@ptrCast(response.address));
@@ -221,8 +248,10 @@ pub fn init() !void {
     }
 
     madt.?.read_entries();
-    const ioapic = try madt.?.get_ioapic();
-    _ = ioapic.ioapic_addr;
 
-    serial.println("{any}", .{ioapic});
+    lapic.init();
+    try hpet.init();
+
+    var io_apic = (try madt.?.get_ioapic()).ioapic;
+    io_apic.init();
 }

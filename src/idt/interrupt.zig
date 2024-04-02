@@ -8,8 +8,14 @@ const std = @import("std");
 pub extern var interrupt_vector: [256]usize;
 
 pub const Regs = packed struct {
-    rbp: u64,
+    rax: u64,
+    rcx: u64,
+    rdx: u64,
+    rbx: u64,
     rsp: u64,
+    rbp: u64,
+    rsi: u64,
+    rdi: u64,
 };
 
 pub const Interrupt = packed struct {
@@ -52,20 +58,21 @@ pub const Interrupt = packed struct {
             "Reserved",
         };
 
-        if (self.interrupt < 31) {
-            std.debug.panic("Interrupt no: {x} name: {s}\nError code : {x}\n", .{ self.interrupt, expections_name[self.interrupt], self.code_err });
-            return;
-        }
-
-        std.debug.panic("Interrupt no: {x}\nError code : {x}\n", .{ self.interrupt, self.code_err });
+        std.debug.panic("Interrupt no: {x} name: {s}\nError code : {x}\n{any}", .{ self.interrupt, expections_name[self.interrupt], self.code_err, self.regs });
     }
 };
 
+pub fn irq_handler() void {}
+
 pub export fn interrupt_handler(rsp: u64) callconv(.C) u64 {
     const reg: *Interrupt = @ptrFromInt(rsp);
-    reg.log();
 
-    while (true) {}
+    if (reg.interrupt <= 32) {
+        reg.log();
+    } else if (reg.interrupt <= 32 + 15) {
+        serial.println("Interrupt {}", .{reg.interrupt});
+        irq_handler();
+    }
 
     return rsp;
 }

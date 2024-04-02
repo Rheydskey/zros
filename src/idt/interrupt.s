@@ -1,13 +1,25 @@
 [bits 64]
 %macro push_all 0
-        push rbp
+        push rax
+        push rcx
+        push rdx
+        push rbx
         push rsp
-
+        push rbp
+        push rsi
+        push rdi
+        
 %endmacro
 
 %macro pop_all 0
-        pop rsp
+        pop rdi
+        pop rsi
         pop rbp
+        pop rsp
+        pop rbx
+        pop rdx
+        pop rcx
+        pop rax
 %endmacro
 
 
