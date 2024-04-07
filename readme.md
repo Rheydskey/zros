@@ -7,6 +7,17 @@ Why no rust ? Because rust will come when userspace will work
 Big thanks to devse admins to make me do this thing (inspired of them)
 
 Roadmap (FROM the devse meme generator):
-GDT -> IDT -> SIMD -> PMM -> VMM -> PAGING -> ACPI -> APIC -> IOAPIC 
--> LAPIC -> HPET -> APIC-TIMER -> SMP -> Multitasking -> Syscalls 
--> Userspace -> The fun begin
+- [x] GDT
+- [x] IDT
+- [x] PMM
+- [x] VMM
+- [x] Paging
+- [x] ACPI
+- [x] APIC
+- [x] IOAPIC
+- [x] LAPIC
+- [x] HPET
+- [x] APIC-TIMER
+- [ ] SMP
+- [ ] Userspace
+- [ ] The fun begin

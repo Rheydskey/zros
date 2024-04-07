@@ -88,8 +88,6 @@ pub fn irq_handler(interrupt: *const Interrupt) void {
     last_irq = interrupt.interrupt;
 }
 
-pub var a = false;
-
 pub export fn interrupt_handler(rsp: u64) callconv(.C) u64 {
     const reg: *Interrupt = @ptrFromInt(rsp);
 
@@ -108,11 +106,7 @@ pub export fn interrupt_handler(rsp: u64) callconv(.C) u64 {
     return rsp;
 }
 
-const InterruptStackFrame = struct {};
-
-pub export fn keyboard(interrupt: *const InterruptStackFrame) callconv(.C) void {
-    _ = interrupt;
-
+pub fn keyboard() void {
     serial.print("Enter keyboard\n", .{});
     const scancode = assembly.inb(0x60);
     // catch {
@@ -121,7 +115,4 @@ pub export fn keyboard(interrupt: *const InterruptStackFrame) callconv(.C) void 
     //};
 
     keyboard_handle(scancode);
-    pic.end_of_pic1();
-
-    asm volatile ("sti");
 }

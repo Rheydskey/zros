@@ -12,5 +12,7 @@ qemu-system-x86_64 -serial stdio \
                    -m 1024M \
                    -M q35 \
                    -smp 1 \
-                   -bios /usr/share/ovmf/x64/OVMF.fd
-                   #-d int,cpu_reset,in_asm
+                   -bios /usr/share/ovmf/x64/OVMF.fd \
+                   # -enable-kvm
+                   # -d int,cpu_reset,in_asm \
+                   # -s -S

@@ -66,20 +66,20 @@ pub fn init() !void {
 }
 
 pub fn init_timer() void {
-    var addr: Lapic = .{ .addr = acpi.madt.?.lapic_addr + limine.hhdm.response.?.offset };
+    const _lapic = lapic.?;
 
-    addr.write(Lapic.Regs.TIMER_DIV, Lapic.ApicTimer.Divisor.APIC_TIMER_DIVIDE_BY_16);
-    addr.write(Lapic.Regs.TIMER_INITCNT, 0xFFFF_FFFF);
+    _lapic.write(Lapic.Regs.TIMER_DIV, Lapic.ApicTimer.Divisor.APIC_TIMER_DIVIDE_BY_16);
+    _lapic.write(Lapic.Regs.TIMER_INITCNT, 0xFFFF_FFFF);
 
     hpet.hpet.?.sleep(10);
 
-    addr.write(Lapic.Regs.LVT_TIMER, Lapic.ApicTimer.MASKED);
+    _lapic.write(Lapic.Regs.LVT_TIMER, Lapic.ApicTimer.MASKED);
 
-    const tick_in_10ms = 0xFFFF_FFFF - addr.read(Lapic.Regs.TIMER_CURRCNT);
+    const tick_in_10ms = 0xFFFF_FFFF - _lapic.read(Lapic.Regs.TIMER_CURRCNT);
 
-    addr.write(Lapic.Regs.LVT_TIMER, Lapic.ApicTimer.LAPIC_TIMER_IRQ | Lapic.ApicTimer.LAPIC_TIMER_PERIODIC);
+    _lapic.write(Lapic.Regs.LVT_TIMER, Lapic.ApicTimer.LAPIC_TIMER_IRQ | Lapic.ApicTimer.LAPIC_TIMER_PERIODIC);
 
-    addr.write(Lapic.Regs.TIMER_DIV, Lapic.ApicTimer.Divisor.APIC_TIMER_DIVIDE_BY_16);
+    _lapic.write(Lapic.Regs.TIMER_DIV, Lapic.ApicTimer.Divisor.APIC_TIMER_DIVIDE_BY_16);
 
-    addr.write(Lapic.Regs.TIMER_INITCNT, tick_in_10ms / 10);
+    _lapic.write(Lapic.Regs.TIMER_INITCNT, tick_in_10ms / 10);
 }
