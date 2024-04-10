@@ -83,7 +83,8 @@ pub const Serial = struct {
     }
 
     pub fn writeWithContext(self: Serial, values: []const u8) WriteError!usize {
-        return self.write_array(values);
+        _ = self;
+        return Serial.write_array(values);
     }
 
     const WriteError = error{CannotWrite};
