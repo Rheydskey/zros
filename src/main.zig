@@ -15,6 +15,7 @@ const limine_rq = @import("limine_rq.zig");
 const acpi = @import("./acpi/acpi.zig");
 const hpet = @import("./drivers/hpet.zig");
 const lapic = @import("./drivers/lapic.zig");
+const ps2 = @import("./drivers/ps2.zig");
 
 pub fn screenfiller(x: u64, y: u64) fb.Color {
     return .{
@@ -81,6 +82,8 @@ pub fn main() !noreturn {
     }
 
     try acpi.init();
+
+    try ps2.init();
 
     try fb.fb_ptr.?.fillWith(screenfiller);
 

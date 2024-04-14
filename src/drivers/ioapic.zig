@@ -61,22 +61,21 @@ pub const IoApic = packed struct {
         var acpi_redirect: IoApicRedirect = .{
             .int_vec = intno,
         };
-        const struct_as_u32: [*]u32 = @ptrCast(&acpi_redirect);
-        const redirect_table: u32 = (gsi - self.gsib) * 2 + 16;
 
-        serial.println("{}", .{redirect_table});
-
-        acpi_redirect.int_vec = intno;
-
-        if (flags & IoApicRedirect.IOAPIC_ACTIVE_HIGH_WHEN_LOW == IoApicRedirect.IOAPIC_ACTIVE_HIGH_WHEN_LOW) {
+        if ((flags & IoApicRedirect.IOAPIC_ACTIVE_HIGH_WHEN_LOW) == IoApicRedirect.IOAPIC_ACTIVE_HIGH_WHEN_LOW) {
             acpi_redirect.interrupt_pin = .Low;
         }
 
-        if (flags & IoApicRedirect.IOAPIC_LEVEL_TRIGGER == IoApicRedirect.IOAPIC_LEVEL_TRIGGER) {
+        if ((flags & IoApicRedirect.IOAPIC_LEVEL_TRIGGER) == IoApicRedirect.IOAPIC_LEVEL_TRIGGER) {
             acpi_redirect.trigger_mode = true;
         }
 
         acpi_redirect.destination = @intCast(lapic_id);
+
+        const struct_as_u32: [*]u32 = @ptrCast(&acpi_redirect);
+        const redirect_table: u32 = (gsi - self.gsib) * 2 + 16;
+
+        serial.println("{}", .{redirect_table});
 
         self.write(redirect_table, struct_as_u32[0]);
         self.write(redirect_table + 1, struct_as_u32[1]);
