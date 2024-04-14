@@ -1,4 +1,4 @@
-const serial = @import("./serial.zig");
+const serial = @import("./drivers/serial.zig");
 const Range = @import("./iter.zig").Range;
 
 pub const State = enum(u8) {

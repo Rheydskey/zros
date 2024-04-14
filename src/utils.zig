@@ -1,4 +1,4 @@
-const serial = @import("serial.zig");
+const serial = @import("./drivers/serial.zig");
 
 pub inline fn align_up(addr: usize, alignment: usize) usize {
     return (addr + alignment - 1) & ~(alignment - 1);

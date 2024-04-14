@@ -1,7 +1,7 @@
-const serial = @import("serial.zig");
-const acpi = @import("./acpi.zig");
-const limine = @import("./limine_rq.zig");
-const asm_utils = @import("utils.zig");
+const serial = @import("./serial.zig");
+const acpi = @import("../acpi/acpi.zig");
+const limine = @import("../limine_rq.zig");
+const asm_utils = @import("../utils.zig");
 const hpet = @import("./hpet.zig");
 
 pub var lapic: ?Lapic = null;

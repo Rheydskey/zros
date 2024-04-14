@@ -1,6 +1,6 @@
 const serial = @import("./serial.zig");
-const limine_rq = @import("./limine_rq.zig");
-const acpi = @import("acpi.zig");
+const limine_rq = @import("../limine_rq.zig");
+const acpi = @import("../acpi/acpi.zig");
 
 pub const IoApicRedirect = packed struct {
     int_vec: u8 = 0,

@@ -1,4 +1,4 @@
-const assembly = @import("asm.zig");
+const assembly = @import("../asm.zig");
 
 const PIC = struct {
     cmd: u16,

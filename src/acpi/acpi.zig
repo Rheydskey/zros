@@ -1,13 +1,13 @@
-const lapic = @import("./lapic.zig");
-const ioapic = @import("./ioapic.zig");
-const serial = @import("serial.zig");
+const lapic = @import("../drivers/lapic.zig");
+const ioapic = @import("../drivers/ioapic.zig");
+const serial = @import("../drivers/serial.zig");
 const limine = @import("limine");
-const limine_rq = @import("./limine_rq.zig");
+const limine_rq = @import("../limine_rq.zig");
 const std = @import("std");
-const hpet = @import("hpet.zig");
-const outb = @import("./asm.zig").outb;
-const PIC1 = @import("./pic.zig").PIC1;
-const PIC2 = @import("./pic.zig").PIC2;
+const hpet = @import("../drivers/hpet.zig");
+const outb = @import("../asm.zig").outb;
+const PIC1 = @import("../drivers/pic.zig").PIC1;
+const PIC2 = @import("../drivers/pic.zig").PIC2;
 
 pub var rspt: ?*align(1) Rspt = undefined;
 pub var rsdp: ?*align(1) Rsdp = undefined;

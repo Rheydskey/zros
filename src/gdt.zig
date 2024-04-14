@@ -1,4 +1,4 @@
-const serial = @import("./serial.zig");
+const serial = @import("./drivers/serial.zig");
 
 var GDT: [5]GDTEntry = [_]GDTEntry{
     GDTEntry{},

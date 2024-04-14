@@ -1,7 +1,7 @@
-const iter = @import("iter.zig");
-const ds = @import("./ds.zig");
-const utils = @import("./utils.zig");
-const serial = @import("./serial.zig");
+const iter = @import("../iter.zig");
+const ds = @import("../ds.zig");
+const utils = @import("../utils.zig");
+const serial = @import("../drivers/serial.zig");
 const limine = @import("limine");
 
 pub const PAGE_SIZE = 0x1000; // 0x1000 = 4Kb

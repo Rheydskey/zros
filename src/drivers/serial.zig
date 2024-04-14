@@ -1,5 +1,5 @@
-const outb = @import("./asm.zig").outb;
-const inb = @import("./asm.zig").inb;
+const outb = @import("../asm.zig").outb;
+const inb = @import("../asm.zig").inb;
 const std = @import("std");
 
 pub fn print_err(comptime format: []const u8, args: anytype) void {

@@ -1,7 +1,7 @@
-const serial = @import("serial.zig");
+const serial = @import("./drivers/serial.zig");
 const std = @import("std");
 const interrupt = @import("idt/interrupt.zig");
-const pic = @import("pic.zig");
+const pic = @import("./drivers/pic.zig");
 
 const IDT_SIZE = 256;
 

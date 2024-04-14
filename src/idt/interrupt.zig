@@ -1,10 +1,10 @@
 const idt = @import("../idt.zig");
-const serial = @import("../serial.zig");
+const serial = @import("../drivers/serial.zig");
 const assembly = @import("../asm.zig");
-const keyboard_handle = @import("../keyboard.zig").handle;
-const pic = @import("../pic.zig");
+const keyboard_handle = @import("../drivers/keyboard.zig").handle;
+const pic = @import("../drivers/pic.zig");
 const std = @import("std");
-const lapic = @import("../lapic.zig");
+const lapic = @import("../drivers/lapic.zig");
 
 pub extern var interrupt_vector: [256]usize;
 

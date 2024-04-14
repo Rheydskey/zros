@@ -1,9 +1,9 @@
 const assert = @import("std").debug.assert;
-const serial = @import("serial.zig");
+const serial = @import("../drivers/serial.zig");
 const limine = @import("limine");
-const limine_rq = @import("limine_rq.zig");
+const limine_rq = @import("../limine_rq.zig");
 const pmm = @import("pmm.zig");
-const utils = @import("utils.zig");
+const utils = @import("../utils.zig");
 
 const VMM_ADDR_MASK: u64 = 0x000ffffffffff000;
 
