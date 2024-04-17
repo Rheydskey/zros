@@ -1,3 +1,4 @@
+const cpuid = @import("./cpuid.zig");
 const serial = @import("./drivers/serial.zig");
 const gdt = @import("./gdt.zig");
 const idt = @import("./idt.zig");
@@ -65,6 +66,8 @@ pub fn main() !noreturn {
         return error.CannotWrite;
     };
 
+    serial.println("{}", .{cpuid.get_cpuid()});
+
     gdt.init();
     idt.init();
 
@@ -86,6 +89,8 @@ pub fn main() !noreturn {
     try ps2.init();
 
     try fb.fb_ptr.?.fillWith(screenfiller);
+
+    asm volatile ("int $0x32");
 
     while (true) {
         const value = try serial.Serial.read();

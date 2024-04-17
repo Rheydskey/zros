@@ -3,7 +3,7 @@ const ioapic = @import("./ioapic.zig");
 const inb = @import("../asm.zig").inb;
 const outb = @import("../asm.zig").outb;
 
-const PS2 = struct {
+pub const PS2 = struct {
     const Regs = struct {
         const DATA = 0x60;
         const STATUS_COMMAND = 0x64;
@@ -27,14 +27,14 @@ const PS2 = struct {
         reg: u16,
         value: u8,
     ) void {
-        while (inb(Regs.STATUS_COMMAND) & 2 != 0) {}
+        while ((inb(Regs.STATUS_COMMAND) & 2) != 0) {}
         outb(reg, value);
     }
 
     pub fn read(
         reg: u16,
     ) u8 {
-        while (inb(Regs.STATUS_COMMAND) & 1 == 0) {}
+        while ((inb(Regs.STATUS_COMMAND) & 1) == 0) {}
         return inb(reg);
     }
 
@@ -50,8 +50,8 @@ const PS2 = struct {
 };
 
 pub fn init() !void {
-    PS2.write(PS2.Regs.STATUS_COMMAND, PS2.Command.DISABLE_SECOND_PORT);
     PS2.write(PS2.Regs.STATUS_COMMAND, PS2.Command.DISABLE_FIRST_PORT);
+    PS2.write(PS2.Regs.STATUS_COMMAND, PS2.Command.DISABLE_SECOND_PORT);
 
     var ps2_config = PS2.read_config();
 
@@ -63,6 +63,6 @@ pub fn init() !void {
 
     var io_apic = (try acpi.madt.?.get_ioapic()).ioapic;
 
-    io_apic.redirect(0, 36, 3);
-    _ = inb(PS2.Regs.DATA);
+    io_apic.redirect(0, 33, 1);
+    @import("./serial.zig").println("DATA {b}", .{inb(PS2.Regs.DATA)});
 }

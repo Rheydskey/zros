@@ -2,7 +2,7 @@ const serial = @import("./serial.zig");
 const limine_rq = @import("../limine_rq.zig");
 const acpi = @import("../acpi/acpi.zig");
 
-pub const IoApicRedirect = packed struct {
+pub const IoApicRedirect = packed struct(u64) {
     int_vec: u8 = 0,
     delivery_mode: DeliveryMode = .Fixed,
     destination_mode: DestinationMode = .Physical,
@@ -11,7 +11,7 @@ pub const IoApicRedirect = packed struct {
     remote_irr: bool = false,
     trigger_mode: bool = false,
     interrupt_mask: bool = false,
-    reserved: u38 = 0,
+    reserved: u39 = 0,
     destination: u8 = 0,
     const InterruptPinPolarity = enum(u1) {
         High = 0,
@@ -32,9 +32,9 @@ pub const IoApicRedirect = packed struct {
         ExtInt = 0b111,
     };
 
-    const IOAPIC_ACTIVE_HIGH_WHEN_LOW = 2;
+    const IOAPIC_ACTIVE_HIGH_WHEN_LOW = (1 << 1);
 
-    const IOAPIC_LEVEL_TRIGGER = 8;
+    const IOAPIC_LEVEL_TRIGGER = (1 << 3);
 
     comptime {
         if (!(@sizeOf(@This()) == @sizeOf(u64))) {
@@ -83,8 +83,10 @@ pub const IoApic = packed struct {
 
     pub fn redirect(self: *align(1) @This(), lapic_id: u32, intno: u8, irq: u8) void {
         if (acpi.madt.?.get_iso(irq)) |iso| {
+            serial.println("Will redirect {} to {} with GSI flags", .{ intno, irq });
             self.redirect_gsi(lapic_id, intno, iso.gsi, iso.flags);
         } else {
+            serial.println("Will redirect {} to {} with 0 flags", .{ intno, irq });
             self.redirect_gsi(lapic_id, intno, irq, 0);
         }
     }
