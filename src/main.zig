@@ -11,13 +11,6 @@ const limine_rq = @import("limine_rq.zig");
 const acpi = @import("./acpi/acpi.zig");
 const ps2 = @import("./drivers/ps2.zig");
 const psf = @import("./psf.zig");
-pub fn screenfiller(x: u64, y: u64) fb.Color {
-    return .{
-        .blue = @truncate(x ^ y),
-        .red = @truncate((y * 2) ^ (x * 2)),
-        .green = @truncate((y * 4) ^ (x * 4)),
-    };
-}
 
 const Stacktrace = struct {
     next: *Stacktrace,
@@ -71,7 +64,8 @@ pub fn main() !noreturn {
     if (limine_rq.framebuffer.response) |response| {
         if (response.framebuffer_count > 0) {
             const framebuf = response.framebuffers_ptr[0];
-            fb.fb_ptr = fb.Framebuffer.init(@intFromPtr(framebuf.address), framebuf.height, framebuf.width);
+            serial.println("{any}", .{framebuf});
+            fb.fb_ptr = fb.Framebuffer.init(@intFromPtr(framebuf.address), framebuf.height, framebuf.width, framebuf.pitch, framebuf.bpp);
         }
     }
 
@@ -79,12 +73,9 @@ pub fn main() !noreturn {
 
     try ps2.init();
 
-    try fb.fb_ptr.?.fillWith(screenfiller);
-
     const a: *align(1) const psf.Psf2 = @ptrCast(psf.lucida);
 
-    a.printHeader();
-    a.readall();
+    fb.fb_ptr.?.print_str("ZROS - 0.0.1+" ++ build_options.git_version, 0, 0, a);
 
     while (true) {
         asm volatile ("hlt");

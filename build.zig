@@ -1,5 +1,10 @@
 const std = @import("std");
 
+pub fn get_git_version(b: *std.Build) []const u8 {
+    const cmd = b.run(&[_][]const u8{ "git", "rev-parse", "HEAD" });
+    return cmd[0..6];
+}
+
 const AsmPath = struct {
     path_file: []const u8,
     file_name: []const u8,
@@ -20,7 +25,7 @@ pub fn build(b: *std.Build) !void {
     const build_options = b.addOptions();
 
     build_options.addOption(bool, "release_mode", optimize != .Debug);
-
+    build_options.addOption([]const u8, "git_version", get_git_version(b));
     var cross =
         std.zig.CrossTarget{
         .cpu_arch = std.Target.Cpu.Arch.x86_64,
