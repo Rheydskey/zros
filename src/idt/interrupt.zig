@@ -71,35 +71,13 @@ pub const Interrupt = packed struct {
     }
 };
 
-var last_irq: ?u64 = null;
-var nb: u32 = 0;
-
 pub fn irq_handler(interrupt: *const Interrupt) void {
     if (interrupt.interrupt == 33) {
-        nb = 0;
-        last_irq = interrupt.interrupt;
         const value = @import("../asm.zig").inb(0x60);
-        serial.println("Keyboard: {b}", .{value});
 
-        serial.print("{} => {}\n", .{ value, @import("../drivers/keyboard.zig").event2enum(value) });
+        keyboard_handle(value);
         return;
     }
-
-    if (interrupt.interrupt == 32) {
-        return;
-    }
-
-    if (last_irq) |irq_num| {
-        if (irq_num == interrupt.interrupt) {
-            nb += 1;
-            serial.println("\x1b[1F\x1B[2K({:0>4}x)irq: {}", .{ nb, interrupt.interrupt });
-            return;
-        }
-    }
-
-    serial.println("irq: {}", .{interrupt.interrupt});
-    nb = 0;
-    last_irq = interrupt.interrupt;
 }
 
 pub export fn interrupt_handler(rsp: u64) callconv(.C) u64 {

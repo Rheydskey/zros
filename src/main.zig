@@ -1,23 +1,16 @@
-const cpuid = @import("./cpuid.zig");
 const serial = @import("./drivers/serial.zig");
 const gdt = @import("./gdt.zig");
 const idt = @import("./idt.zig");
-const assembly = @import("./asm.zig");
-const keyboard = @import("./drivers/keyboard.zig");
 const builtin = @import("std").builtin;
-const iter = @import("./iter.zig");
 const limine = @import("limine");
 const pmm = @import("./mem/pmm.zig");
-const utils = @import("./utils.zig");
 const build_options = @import("build_options");
 const vmm = @import("./mem/vmm.zig");
 const fb = @import("./drivers/fbscreen.zig");
 const limine_rq = @import("limine_rq.zig");
 const acpi = @import("./acpi/acpi.zig");
-const hpet = @import("./drivers/hpet.zig");
-const lapic = @import("./drivers/lapic.zig");
 const ps2 = @import("./drivers/ps2.zig");
-
+const psf = @import("./psf.zig");
 pub fn screenfiller(x: u64, y: u64) fb.Color {
     return .{
         .blue = @truncate(x ^ y),
@@ -66,8 +59,6 @@ pub fn main() !noreturn {
         return error.CannotWrite;
     };
 
-    serial.println("{}", .{cpuid.get_cpuid()});
-
     gdt.init();
     idt.init();
 
@@ -90,13 +81,13 @@ pub fn main() !noreturn {
 
     try fb.fb_ptr.?.fillWith(screenfiller);
 
-    asm volatile ("int $0x32");
+    const a: *align(1) const psf.Psf2 = @ptrCast(psf.lucida);
+
+    a.printHeader();
+    a.readall();
 
     while (true) {
-        const value = try serial.Serial.read();
-        if (value == 0) continue;
-
-        serial.print("{} => {}\n", .{ value, keyboard.event2enum(value) });
+        asm volatile ("hlt");
     }
 }
 

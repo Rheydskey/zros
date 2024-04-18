@@ -13,6 +13,6 @@ qemu-system-x86_64 -serial stdio \
                    -M q35 \
                    -smp 1 \
                    -bios /usr/share/ovmf/x64/OVMF.fd \
-                   # -enable-kvm
+                   -enable-kvm
                    # -d int,cpu_reset,in_asm \
                    # -s -S
