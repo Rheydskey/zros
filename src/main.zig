@@ -65,7 +65,9 @@ pub fn main() !noreturn {
         if (response.framebuffer_count > 0) {
             const framebuf = response.framebuffers_ptr[0];
             serial.println("{any}", .{framebuf});
-            fb.fb_ptr = fb.Framebuffer.init(@intFromPtr(framebuf.address), framebuf.height, framebuf.width, framebuf.pitch, framebuf.bpp);
+
+            const a: *align(1) const psf.Psf2 = @ptrCast(psf.lucida);
+            fb.fb_ptr = fb.Framebuffer.init(@intFromPtr(framebuf.address), framebuf.height, framebuf.width, framebuf.pitch, framebuf.bpp, a);
         }
     }
 
@@ -73,10 +75,8 @@ pub fn main() !noreturn {
 
     try ps2.init();
 
-    const a: *align(1) const psf.Psf2 = @ptrCast(psf.lucida);
-
-    fb.fb_ptr.?.print_str("ZROS - 0.0.1+" ++ build_options.git_version, 0, 0, a);
-
+    fb.fb_ptr.?.print_str("ZROS - 0.0.1+" ++ build_options.git_version, 0, 0);
+    fb.fb_ptr.?.print_str("Hewwo worwd", 0, 16);
     while (true) {
         asm volatile ("hlt");
     }

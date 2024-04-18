@@ -9,7 +9,7 @@ pub const GlyphIter = struct {
     step: u32 = 1,
 
     pub fn iter(self: *@This()) ?[]const u8 {
-        if (self.cur > self.max) {
+        if (self.cur + self.step > self.max) {
             return null;
         }
 

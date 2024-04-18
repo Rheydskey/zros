@@ -11,6 +11,52 @@ pub const Color = extern struct {
     const WHITE: Color = .{ .blue = 255, .green = 255, .red = 255 };
 };
 
+pub var screen: ?struct {
+    max_x: usize,
+    max_y: usize,
+
+    x: usize = 0,
+    y: usize = 0,
+
+    pub fn reset(self: *@This()) void {
+        self.x = 0;
+        self.y = 0;
+    }
+
+    pub fn add(self: *@This(), to_add: usize) void {
+        if (self.x + to_add > self.max_x) {
+            self.y += 16 * ((self.x + to_add) / self.max_x);
+            self.x = 0;
+            return;
+        }
+
+        self.x += to_add;
+    }
+
+    pub fn remove(self: *@This(), to_remove: usize) void {
+        self.x -|= to_remove;
+    }
+
+    pub fn nextLine(self: *@This()) void {
+        self.x = 0;
+        self.y += 16;
+    }
+
+    pub fn print(self: *@This(), to_write: u8) void {
+        if (fb_ptr) |fb| {
+            fb.print(to_write, self.x, self.y);
+            self.add(10);
+        }
+    }
+
+    pub fn println(self: *@This(), to_write: []const u8) void {
+        for (to_write) |c| {
+            self.print(c);
+        }
+        self.y += 1;
+    }
+} = null;
+
 pub const Framebuffer = struct {
     height: u64,
     width: u64,
@@ -18,9 +64,11 @@ pub const Framebuffer = struct {
     pitch: u64,
     bpp: u16,
     cursor: u64,
+    font: *align(1) const psf2.Psf2,
 
-    pub fn init(ptr: u64, height: u64, width: u64, pitch: u64, bpp: u16) @This() {
-        return .{ .ptr = @ptrFromInt(ptr), .height = height, .width = width, .cursor = 0, .pitch = pitch, .bpp = bpp };
+    pub fn init(ptr: u64, height: u64, width: u64, pitch: u64, bpp: u16, font: *align(1) const psf2.Psf2) @This() {
+        screen = .{ .max_y = width, .max_x = height };
+        return .{ .ptr = @ptrFromInt(ptr), .height = height, .width = width, .cursor = 0, .pitch = pitch, .bpp = bpp, .font = font };
     }
 
     pub fn write(self: *@This(), color: Color) void {
@@ -29,8 +77,8 @@ pub const Framebuffer = struct {
         self.cursor += 1;
     }
 
-    pub fn print(self: *@This(), to_write: u8, x: usize, y: usize, font: *align(1) const psf2.Psf2) void {
-        var iter = font.readGlyph(to_write);
+    pub fn print(self: *const @This(), to_write: u8, x: usize, y: usize) void {
+        var iter = self.font.readGlyph(to_write);
         var offset: u64 = y;
         while (iter.iter()) |lines| {
             var bit: u16 = lines[1] | @as(u16, lines[2]) << 8;
@@ -56,7 +104,6 @@ pub const Framebuffer = struct {
         to_write: []const u8,
         x: usize,
         y: usize,
-        font: *align(1) const psf2.Psf2,
     ) void {
         var offset_line: usize = 0;
         var column = x;
@@ -66,7 +113,7 @@ pub const Framebuffer = struct {
                 column = x;
                 continue;
             }
-            self.print(c, column, y + offset_line, font);
+            self.print(c, column, y + offset_line);
             column += 10;
         }
     }

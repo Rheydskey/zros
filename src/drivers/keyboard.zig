@@ -18,18 +18,17 @@ const KeyboardEvent = enum {
     Key,
     Esc,
     Space,
-    Back,
     Shift,
     Ctrl,
     Enter,
+    BackSpace,
     Other,
 };
 
 pub fn event2enum(scancode: u8) KeyboardEvent {
     const event = switch (scancode) {
         0x01 => KeyboardEvent.Esc,
-        // 0x02...0x0D, 0x10...0x1B, 0x1E...0x29 => KeyboardEvent.Key,
-        0x0E => KeyboardEvent.Back,
+        0x0E => KeyboardEvent.BackSpace,
         0x1C => KeyboardEvent.Enter,
         0x36, 0x2A => KeyboardEvent.Shift,
         0x39 => KeyboardEvent.Space,
@@ -51,21 +50,32 @@ var ctrl = false;
 
 pub fn handle(scancode: u8) void {
     const event = event2enum(scancode);
+    serial.println("{}", .{event});
+    var screen = &@import("./fbscreen.zig").screen.?;
 
     switch (event) {
         KeyboardEvent.Key => {
             if (shift) {
                 serial.Serial.write(MAJKEYBOARDMAP[scancode]);
+                screen.print(MAJKEYBOARDMAP[scancode]);
                 return;
             }
             serial.Serial.write(KEYBOARDMAP[scancode]);
+            screen.print(KEYBOARDMAP[scancode]);
         },
         KeyboardEvent.Space => {
             serial.Serial.write(' ');
+            screen.print(' ');
+        },
+        KeyboardEvent.BackSpace => {
+            screen.remove(10);
+            screen.print(' ');
+            screen.remove(10);
         },
         KeyboardEvent.Shift => shift = !shift,
-        else => {
-            // serial.println("{s}", .{@tagName(event)});
+        KeyboardEvent.Enter => {
+            screen.nextLine();
         },
+        else => {},
     }
 }
