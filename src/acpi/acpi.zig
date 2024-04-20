@@ -225,6 +225,30 @@ pub fn get_rspd() !*Rsdp {
     return @alignCast(@ptrCast(response.address));
 }
 
+pub const Mcfg = extern struct {
+    header: AcpiSDT,
+    reserved: u64 align(1),
+    configuration: void,
+
+    pub const Configuration = packed struct(u128) {
+        base: u64,
+        pci_group: u16,
+        start: u8,
+        end: u8,
+        reserved: u32,
+    };
+
+    pub fn get_configuration(self: *align(1) @This()) ?Configuration {
+        const ptr: *align(1) Configuration = @ptrCast(&self.configuration);
+
+        return ptr.*;
+    }
+
+    pub fn nb_of_entry(self: *align(1) @This()) usize {
+        return (self.header.length - @sizeOf(Mcfg)) / @sizeOf(Configuration);
+    }
+};
+
 pub fn init() !void {
     // Disabling PIC
     outb(PIC1.data, 0xff);

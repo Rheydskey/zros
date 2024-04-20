@@ -1,4 +1,6 @@
 const assembly = @import("../asm.zig");
+const acpi = @import("../acpi/acpi.zig");
+const limine_rq = @import("../limine_rq.zig");
 
 pub const PciAddr = packed struct(u32) {
     offset: u8 = 0,
@@ -8,9 +10,15 @@ pub const PciAddr = packed struct(u32) {
     reserved: u7 = 0,
     is_enable: bool = true,
 
+    // Legacy way
     pub fn read_config(self: @This()) u16 {
         assembly.outl(Pci.Regs.CONFIG_ADDRESS, @bitCast(self));
         return assembly.inw(Pci.Regs.CONFIG_DATA);
+    }
+
+    pub fn read(self: @This(), cfg: acpi.Mcfg.Configuration) u16 {
+        const addr: u64 = (@as(u64, self.bus_no - cfg.start) << 20 | @as(u64, self.device_no) << 15 | @as(u64, self.fn_no) << 12);
+        return @as(*u16, @ptrFromInt(addr + limine_rq.hhdm.response.?.offset + cfg.base + self.offset)).*;
     }
 };
 
@@ -18,6 +26,7 @@ pub const Pci = struct {
     bus: u8,
     slot: u5,
     function: u3,
+    mcfg: acpi.Mcfg.Configuration,
 
     // FROM: https://admin.pci-ids.ucw.cz/read/PD/
     const Class = enum {
@@ -79,8 +88,8 @@ pub const Pci = struct {
         const CONFIG_DATA = 0xCFC;
     };
 
-    pub fn new(bus: u8, slot: u5, function: u3) Pci {
-        return .{ .bus = bus, .slot = slot, .function = function };
+    pub fn new(bus: u8, slot: u5, function: u3, mcfg: *const acpi.Mcfg.Configuration) Pci {
+        return .{ .bus = bus, .slot = slot, .function = function, .mcfg = mcfg.* };
     }
 
     pub fn addr(self: @This(), offset: u8) PciAddr {
@@ -95,31 +104,31 @@ pub const Pci = struct {
     }
 
     pub fn vendor_id(self: @This()) u16 {
-        return self.addr(0x0).read_config();
+        return self.addr(0x0).read(self.mcfg);
     }
 
     pub fn device_id(self: @This()) u16 {
-        return self.addr(0x2).read_config();
+        return self.addr(0x2).read(self.mcfg);
     }
 
     pub fn command(self: @This()) u16 {
-        return self.addr(0x4).read_config();
+        return self.addr(0x4).read(self.mcfg);
     }
 
     pub fn status(self: @This()) u16 {
-        return self.addr(0x6).read_config();
+        return self.addr(0x6).read(self.mcfg);
     }
 
     pub fn class(self: @This()) u8 {
-        return @truncate(self.addr(0xb).read_config());
+        return @truncate(self.addr(0xb).read(self.mcfg));
     }
 
     pub fn subclass(self: @This()) u8 {
-        return @truncate(self.addr(0xa).read_config());
+        return @truncate(self.addr(0xa).read(self.mcfg));
     }
 
     pub fn header_type(self: @This()) u8 {
-        return @truncate(self.addr(0xe).read_config());
+        return @truncate(self.addr(0xe).read(self.mcfg));
     }
 
     pub fn bar(self: @This(), n: u8) !u32 {
@@ -135,10 +144,10 @@ pub const Pci = struct {
     }
 };
 
-pub fn scan() void {
+pub fn scan(mcfg: *const acpi.Mcfg.Configuration) void {
     for (0..32) |slot_usize| {
         const slot: u5 = @intCast(slot_usize);
-        const a = Pci.new(0, slot, 0);
+        const a = Pci.new(0, slot, 0, mcfg);
         if (a.vendor_id() == 0xFFFF) {
             continue;
         }
@@ -148,7 +157,7 @@ pub fn scan() void {
         @import("serial.zig").println("VF", .{});
         var function: u3 = 1;
         while (function < 7) : (function += 1) {
-            const vf = Pci.new(0, slot, function);
+            const vf = Pci.new(0, slot, function, mcfg);
 
             if (vf.vendor_id() == 0xFFFF) {
                 continue;
@@ -157,7 +166,7 @@ pub fn scan() void {
             vf.print();
         }
 
-        if (a.header_type() == 0x0) {
+        if (a.header_type() == 0x0 or a.header_type() == 0x80) {
             for (0..6) |n| {
                 @import("serial.zig").println("BAR {} = {!}", .{ n, a.bar(@intCast(n)) });
             }

@@ -79,7 +79,11 @@ pub fn main() !noreturn {
     fb.screen.?.println("ZROS - 0.0.1+" ++ build_options.git_version);
     fb.screen.?.println("Hewwo worwd");
 
-    pci.scan();
+    const mcfg: *align(1) acpi.Mcfg = @ptrCast(try acpi.xspt.?.get(&"MCFG"));
+
+    serial.println("{} {any}", .{ mcfg.nb_of_entry(), mcfg.get_configuration() });
+
+    pci.scan(&mcfg.get_configuration().?);
 
     // serial.println("{X}", .{pci.Pci.readConfig(0, 0, 0, 0)});
 
