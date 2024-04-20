@@ -72,13 +72,12 @@ pub const IoApic = packed struct {
 
         acpi_redirect.destination = @intCast(lapic_id);
 
-        const struct_as_u32: [*]u32 = @ptrCast(&acpi_redirect);
         const redirect_table: u32 = (gsi - self.gsib) * 2 + 16;
-
+        const struct_as_u64: u64 = @bitCast(acpi_redirect);
         serial.println("{}", .{redirect_table});
 
-        self.write(redirect_table, struct_as_u32[0]);
-        self.write(redirect_table + 1, struct_as_u32[1]);
+        self.write(redirect_table, @truncate(struct_as_u64));
+        self.write(redirect_table + 1, @truncate(struct_as_u64 >> 32));
     }
 
     pub fn redirect(self: *align(1) @This(), lapic_id: u32, intno: u8, irq: u8) void {

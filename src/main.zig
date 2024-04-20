@@ -11,6 +11,7 @@ const limine_rq = @import("limine_rq.zig");
 const acpi = @import("./acpi/acpi.zig");
 const ps2 = @import("./drivers/ps2.zig");
 const psf = @import("./psf.zig");
+const pci = @import("./drivers/pci.zig");
 
 const Stacktrace = struct {
     next: *Stacktrace,
@@ -75,8 +76,19 @@ pub fn main() !noreturn {
 
     try ps2.init();
 
-    fb.fb_ptr.?.print_str("ZROS - 0.0.1+" ++ build_options.git_version, 0, 0);
-    fb.fb_ptr.?.print_str("Hewwo worwd", 0, 16);
+    fb.screen.?.println("ZROS - 0.0.1+" ++ build_options.git_version);
+    fb.screen.?.println("Hewwo worwd");
+
+    pci.scan();
+
+    // serial.println("{X}", .{pci.Pci.readConfig(0, 0, 0, 0)});
+
+    // serial.println("{b}", .{pci.Pci.readConfig(0, 0, 0, 2)});
+
+    // serial.println("{b}", .{pci.Pci.readConfig(0, 0, 0, 4)});
+
+    // serial.println("{b}", .{pci.Pci.readConfig(0, 0, 0, 8)});
+
     while (true) {
         asm volatile ("hlt");
     }

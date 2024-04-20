@@ -1,3 +1,4 @@
+const std = @import("std");
 const limine = @import("limine");
 const psf2 = @import("../psf.zig");
 
@@ -11,7 +12,7 @@ pub const Color = extern struct {
     const WHITE: Color = .{ .blue = 255, .green = 255, .red = 255 };
 };
 
-pub var screen: ?struct {
+pub const Screen = struct {
     max_x: usize,
     max_y: usize,
 
@@ -53,9 +54,11 @@ pub var screen: ?struct {
         for (to_write) |c| {
             self.print(c);
         }
-        self.y += 1;
+        self.nextLine();
     }
-} = null;
+};
+
+pub var screen: ?Screen = null;
 
 pub const Framebuffer = struct {
     height: u64,
@@ -109,12 +112,12 @@ pub const Framebuffer = struct {
         var column = x;
         for (to_write) |c| {
             if (c == '\n') {
-                offset_line += 16;
+                offset_line += self.font.header.height;
                 column = x;
                 continue;
             }
             self.print(c, column, y + offset_line);
-            column += 10;
+            column += self.font.header.width;
         }
     }
 
