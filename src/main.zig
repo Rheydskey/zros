@@ -78,6 +78,7 @@ pub fn main() !noreturn {
 
     fb.screen.?.println("ZROS - 0.0.1+" ++ build_options.git_version);
     fb.screen.?.println("Hewwo worwd");
+    fb.screen.?.print(0x00);
 
     const mcfg: *align(1) acpi.Mcfg = @ptrCast(try acpi.xspt.?.get(&"MCFG"));
 

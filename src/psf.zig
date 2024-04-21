@@ -3,17 +3,17 @@ pub const serial = @import("./drivers/serial.zig");
 pub const lucida = @embedFile("./font/lucida-10x16.psf");
 
 pub const GlyphIter = struct {
-    base: [*]const u8,
+    base: [*]const u16,
     cur: u32 = 0,
     max: u32,
     step: u32 = 1,
 
-    pub fn iter(self: *@This()) ?[]const u8 {
+    pub fn iter(self: *@This()) ?u16 {
         if (self.cur + self.step > self.max) {
             return null;
         }
 
-        const result = self.base[self.cur..(self.cur + self.step)];
+        const result = self.base[self.cur] << 1;
         self.cur += self.step;
 
         return result;
@@ -33,7 +33,7 @@ pub const Psf2Header = packed struct(u256) {
     const Flags = struct {};
 };
 
-pub const Psf2 = struct {
+pub const Psf2 = packed struct {
     header: Psf2Header,
     glyphs: void,
 
@@ -52,10 +52,10 @@ pub const Psf2 = struct {
     }
 
     pub fn readGlyph(self: *align(1) const @This(), nb: u8) GlyphIter {
-        const glyphs: [*]const u8 = @ptrCast(&self.glyphs);
-        const bytesperlines: u32 = (self.header.width + 7) / 8;
-        const glyph: u32 = self.header.glyph_size * nb;
+        const glyphs: [*]const u16 = @alignCast(@ptrCast(&self.glyphs));
+        const bytesperlines: u32 = (self.header.width + 7) / 16;
+        const glyph: u32 = (self.header.glyph_size * nb) / 2;
 
-        return GlyphIter{ .base = glyphs[glyph..], .max = self.header.height * bytesperlines, .step = 2 };
+        return GlyphIter{ .base = glyphs[glyph..], .max = self.header.height * bytesperlines, .step = 1 };
     }
 };

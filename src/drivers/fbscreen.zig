@@ -2,6 +2,36 @@ const std = @import("std");
 const limine = @import("limine");
 const psf2 = @import("../psf.zig");
 
+const Glyph = struct {
+    character: u8,
+    font: *align(1) const psf2.Psf2,
+    color_fg: Color,
+    color_bg: Color,
+
+    pub fn writeGlyph(self: *const @This(), x: usize, y: usize, fb: *const Framebuffer) void {
+        var iter = self.font.readGlyph(self.character);
+        var offset: u64 = y;
+        while (iter.iter()) |lines| {
+            var bit = lines;
+
+            for (0..10) |i| {
+                @import("./serial.zig").print("{b}", .{bit & 1});
+                if ((bit & 1) == 1) {
+                    fb.writePixel(10 - i + x, offset, self.color_fg);
+                } else {
+                    fb.writePixel(10 - i + x, offset, self.color_bg);
+                }
+
+                bit = bit >> 1;
+            }
+
+            @import("./serial.zig").print("\n", .{});
+
+            offset += 1;
+        }
+    }
+};
+
 pub const Color = extern struct {
     blue: u8,
     green: u8,
@@ -81,25 +111,13 @@ pub const Framebuffer = struct {
     }
 
     pub fn print(self: *const @This(), to_write: u8, x: usize, y: usize) void {
-        var iter = self.font.readGlyph(to_write);
-        var offset: u64 = y;
-        while (iter.iter()) |lines| {
-            var bit: u16 = lines[1] | @as(u16, lines[2]) << 8;
-
-            bit = bit >> 6;
-
-            for (0..10) |i| {
-                if ((bit & 1) == 1) {
-                    self.writePixel(10 - i + x, offset, Color.WHITE);
-                } else {
-                    self.writePixel(10 - i + x, offset, Color.BLACK);
-                }
-
-                bit = bit >> 1;
-            }
-
-            offset += 1;
-        }
+        const glyph: Glyph = .{
+            .character = to_write,
+            .font = self.font,
+            .color_fg = .{ .blue = 255, .green = 0, .red = 0 },
+            .color_bg = .{ .blue = 0, .green = 0, .red = 255 },
+        };
+        glyph.writeGlyph(x, y, self);
     }
 
     pub fn print_str(
