@@ -16,9 +16,23 @@ pub const PciAddr = packed struct(u32) {
         return assembly.inw(Pci.Regs.CONFIG_DATA);
     }
 
-    pub fn read(self: @This(), cfg: acpi.Mcfg.Configuration) u16 {
+    pub fn read(self: @This(), cfg: acpi.Mcfg.Configuration, comptime size: type) size {
         const addr: u64 = (@as(u64, self.bus_no - cfg.start) << 20 | @as(u64, self.device_no) << 15 | @as(u64, self.fn_no) << 12);
-        return @as(*u16, @ptrFromInt(addr + limine_rq.hhdm.response.?.offset + cfg.base + self.offset)).*;
+
+        switch (size) {
+            u8 => {
+                return @as(*u8, @ptrFromInt(addr + limine_rq.hhdm.response.?.offset + cfg.base + self.offset)).*;
+            },
+            u16 => {
+                return @as(*u16, @ptrFromInt(addr + limine_rq.hhdm.response.?.offset + cfg.base + self.offset)).*;
+            },
+            u32 => {
+                return @as(*u32, @ptrFromInt(addr + limine_rq.hhdm.response.?.offset + cfg.base + self.offset)).*;
+            },
+            else => {
+                @compileError("Should use u8, u16 or u32 as type");
+            },
+        }
     }
 };
 
@@ -104,31 +118,31 @@ pub const Pci = struct {
     }
 
     pub fn vendor_id(self: @This()) u16 {
-        return self.addr(0x0).read(self.mcfg);
+        return self.addr(0x0).read(self.mcfg, u16);
     }
 
     pub fn device_id(self: @This()) u16 {
-        return self.addr(0x2).read(self.mcfg);
+        return self.addr(0x2).read(self.mcfg, u16);
     }
 
     pub fn command(self: @This()) u16 {
-        return self.addr(0x4).read(self.mcfg);
+        return self.addr(0x4).read(self.mcfg, u16);
     }
 
     pub fn status(self: @This()) u16 {
-        return self.addr(0x6).read(self.mcfg);
+        return self.addr(0x6).read(self.mcfg, u16);
     }
 
     pub fn class(self: @This()) u8 {
-        return @truncate(self.addr(0xb).read(self.mcfg));
+        return self.addr(0xb).read(self.mcfg, u8);
     }
 
     pub fn subclass(self: @This()) u8 {
-        return @truncate(self.addr(0xa).read(self.mcfg));
+        return self.addr(0xa).read(self.mcfg, u8);
     }
 
     pub fn header_type(self: @This()) u8 {
-        return @truncate(self.addr(0xe).read(self.mcfg));
+        return self.addr(0xe).read(self.mcfg, u8);
     }
 
     pub fn bar(self: @This(), n: u8) !u32 {
@@ -136,7 +150,7 @@ pub const Pci = struct {
             return error.BarOverflow;
         }
 
-        return @as(u32, self.addr(0x12 + 4 * n).read_config()) >> 16 | self.addr(0x10 + 4 * n).read_config();
+        return self.addr(0x10 + 4 * n).read(self.mcfg, u32);
     }
 
     pub fn print(self: @This()) void {
