@@ -15,17 +15,14 @@ const Glyph = struct {
             var bit = lines;
 
             for (0..10) |i| {
-                @import("./serial.zig").print("{b}", .{bit & 1});
                 if ((bit & 1) == 1) {
                     fb.writePixel(10 - i + x, offset, self.color_fg);
                 } else {
                     fb.writePixel(10 - i + x, offset, self.color_bg);
                 }
 
-                bit = bit >> 1;
+                bit >>= 1;
             }
-
-            @import("./serial.zig").print("\n", .{});
 
             offset += 1;
         }
@@ -48,6 +45,21 @@ pub const Screen = struct {
 
     x: usize = 0,
     y: usize = 0,
+
+    pub fn resetAll(self: *@This()) void {
+        var x: usize = 0;
+
+        while (x <= self.max_x) : (x += 10) {
+            var y: usize = 0;
+            while (y <= self.max_y) : (y += 16) {
+                if (fb_ptr) |fb| {
+                    fb.print(' ', x, y);
+                }
+            }
+        }
+
+        self.reset();
+    }
 
     pub fn reset(self: *@This()) void {
         self.x = 0;
@@ -114,8 +126,8 @@ pub const Framebuffer = struct {
         const glyph: Glyph = .{
             .character = to_write,
             .font = self.font,
-            .color_fg = .{ .blue = 255, .green = 0, .red = 0 },
-            .color_bg = .{ .blue = 0, .green = 0, .red = 255 },
+            .color_fg = Color.BLACK,
+            .color_bg = Color.WHITE,
         };
         glyph.writeGlyph(x, y, self);
     }

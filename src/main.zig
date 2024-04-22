@@ -44,6 +44,12 @@ pub fn panic(msg: []const u8, _: ?*builtin.StackTrace, _: ?usize) noreturn {
     , .{msg});
     stacktrace();
 
+    var screen = &fb.screen.?;
+
+    screen.resetAll();
+    screen.println("===== PANIC =====");
+    screen.println(msg);
+
     while (true) {}
 }
 
@@ -78,21 +84,13 @@ pub fn main() !noreturn {
 
     fb.screen.?.println("ZROS - 0.0.1+" ++ build_options.git_version);
     fb.screen.?.println("Hewwo worwd");
-    fb.screen.?.print(0x00);
+    fb.screen.?.print(0xDB);
 
     const mcfg: *align(1) acpi.Mcfg = @ptrCast(try acpi.xspt.?.get(&"MCFG"));
 
     serial.println("{} {any}", .{ mcfg.nb_of_entry(), mcfg.get_configuration() });
 
     pci.scan(&mcfg.get_configuration().?);
-
-    // serial.println("{X}", .{pci.Pci.readConfig(0, 0, 0, 0)});
-
-    // serial.println("{b}", .{pci.Pci.readConfig(0, 0, 0, 2)});
-
-    // serial.println("{b}", .{pci.Pci.readConfig(0, 0, 0, 4)});
-
-    // serial.println("{b}", .{pci.Pci.readConfig(0, 0, 0, 8)});
 
     while (true) {
         asm volatile ("hlt");
