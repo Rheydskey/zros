@@ -2,6 +2,3 @@
 	path = limine
 	url = https://github.com/limine-bootloader/limine.git
 	branch = v7.x-binary
-[submodule "limine-zig"]
-	path = limine-zig
-	url = https://github.com/limine-bootloader/limine-zig
