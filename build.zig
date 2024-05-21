@@ -68,7 +68,5 @@ pub fn build(b: *std.Build) !void {
 
     try nasm_to(.{ .path_file = "./src/idt/interrupt.s", .file_name = "interrupt" }, exe);
 
-    try nasm_to(.{ .path_file = "./src/cpuid.s", .file_name = "cpuid" }, exe);
-
     b.installArtifact(exe);
 }

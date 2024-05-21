@@ -97,6 +97,7 @@ pub const Madt = extern struct {
     entries: [0]u8,
 
     pub fn read_entries(self: *align(1) @This()) void {
+        var cpu_count: usize = 0;
         var entry: ?*Madt.MadtEntryHeader = undefined;
         var i: usize = 0;
         while (i < self.header.length - @sizeOf(@This())) {
@@ -107,6 +108,7 @@ pub const Madt = extern struct {
                 0 => {
                     const lapic_entry: *align(1) Madt.ProcessorLocalApic = @ptrCast(entry);
                     serial.println("{any}", .{lapic_entry});
+                    cpu_count += 1;
                 },
                 1 => {
                     const ioapic_struct: *align(1) Madt.IoApic = @ptrCast(entry);
@@ -125,6 +127,8 @@ pub const Madt = extern struct {
 
             i += @max(@sizeOf(MadtEntryHeader), entry.?.length);
         }
+
+        serial.println("CPU COUNT: {}", .{cpu_count});
     }
 
     pub fn get_iso(self: *align(1) @This(), irq: u8) ?*align(1) Iso {
@@ -186,21 +190,19 @@ pub const Madt = extern struct {
     };
 };
 
-const Rsdp = extern struct {
-    signature: [8]u8,
+const Rsdp = packed struct {
+    signature: u64,
     checksum: u8,
-    oem_id: [6]u8,
+    oem_id: u48,
     revision: u8,
     rsdt: u32,
     length: u32,
     xsdt: u64,
     extend_checksum: u8,
-    reserved: [3]u8,
+    reserved: u24,
 
     comptime {
-        if (!(@sizeOf(Rsdp) == @sizeOf(u288))) {
-            @compileError("Bad size for Rspd");
-        }
+        @import("../utils.zig").checkSize(Rsdp, @sizeOf(u288));
     }
 
     pub inline fn get_xsdt(self: *align(1) @This()) !*align(1) Xspt {

@@ -6,3 +6,4 @@ pub export var framebuffer: limine.FramebufferRequest = .{};
 pub export var memory_map: limine.MemoryMapRequest = .{};
 pub export var hhdm: limine.HhdmRequest = .{};
 pub export var rspd: limine.RsdpRequest = .{};
+pub export var smp: limine.SmpRequest = .{};

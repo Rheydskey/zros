@@ -83,3 +83,12 @@ pub fn init_timer() void {
 
     _lapic.write(Lapic.Regs.TIMER_INITCNT, tick_in_10ms / 10);
 }
+
+pub fn send_ipi(lapic_id: u32, vec: u32) void {
+    var l = lapic.?;
+
+    l.write(Lapic.Regs.ICR1, lapic_id);
+    l.write(Lapic.Regs.ICR0, vec);
+}
+
+// pub fn startap(lapic_id: u32, vec: u32) void {}

@@ -59,6 +59,10 @@ pub fn main() !noreturn {
         return error.CannotWrite;
     };
 
+    const vendor_id = @import("./cpuid.zig").Cpuid.read_vendor();
+
+    serial.println("Vendor ID: {s}", .{vendor_id.string});
+
     gdt.init();
     idt.init();
 
