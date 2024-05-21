@@ -13,10 +13,10 @@ const AsmPath = struct {
 pub fn nasm_to(comptime file: AsmPath, exe: *std.Build.Step.Compile) !void {
     var alloc = std.heap.GeneralPurposeAllocator(.{}){};
     const output = "./zig-cache/nasm/" ++ file.file_name ++ ".o";
-    var child = std.process.Child.init(&[_][]const u8{ "nasm", file.path_file, "-f", "elf64", "-w+all", "-Werror", "-o", output }, alloc.allocator());
+    var child = std.process.Child.init(&[_][]const u8{ "nasm", file.path_file, "-f", "elf64", "-w+all", "-o", output }, alloc.allocator());
     _ = try child.spawnAndWait();
 
-    exe.addObjectFile(std.Build.LazyPath{ .path = output });
+    exe.addObjectFile(std.Build.LazyPath{ .cwd_relative = output });
 }
 
 pub fn build(b: *std.Build) !void {
@@ -43,16 +43,20 @@ pub fn build(b: *std.Build) !void {
 
     const target = b.resolveTargetQuery(cross);
 
-    const limine = b.dependency("limine", .{});
+    const limine = b.dependency("limine_zig", .{});
 
-    const exe = b.addExecutable(.{ .name = "zros", .root_source_file = .{
-        .path = "src/main.zig",
-    }, .target = target, .optimize = optimize, .code_model = std.builtin.CodeModel.kernel });
+    const exe = b.addExecutable(.{
+        .name = "zros",
+        .root_source_file = b.path("src/main.zig"),
+        .target = target,
+        .optimize = optimize,
+        .code_model = std.builtin.CodeModel.kernel,
+    });
 
     exe.linkage = .static;
     exe.pie = false;
 
-    exe.linker_script = std.Build.LazyPath{ .path = "linker.ld" };
+    exe.linker_script = b.path("linker.ld");
     exe.root_module.addImport("limine", limine.module("limine"));
     exe.root_module.addOptions("build_options", build_options);
 
@@ -63,6 +67,8 @@ pub fn build(b: *std.Build) !void {
     try nasm_to(.{ .path_file = "./src/idt/idt.s", .file_name = "idt" }, exe);
 
     try nasm_to(.{ .path_file = "./src/idt/interrupt.s", .file_name = "interrupt" }, exe);
+
+    try nasm_to(.{ .path_file = "./src/cpuid.s", .file_name = "cpuid" }, exe);
 
     b.installArtifact(exe);
 }

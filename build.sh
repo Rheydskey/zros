@@ -11,8 +11,8 @@ qemu-system-x86_64 -serial stdio \
                    -no-shutdown \
                    -m 1024M \
                    -M q35 \
-                   -smp 1 \
-                   -bios /usr/share/ovmf/x64/OVMF.fd \
+                   -smp 4 \
+                   -bios /usr/share/edk2-ovmf/OVMF_CODE.fd \
                    -enable-kvm
                    # -d int,cpu_reset,in_asm \
                    # -s -S
