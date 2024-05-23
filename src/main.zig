@@ -61,7 +61,11 @@ pub fn main() !noreturn {
 
     const vendor_id = @import("./cpuid.zig").Cpuid.read_vendor();
 
-    serial.println("Vendor ID: {s}", .{vendor_id.string});
+    serial.println("Vendor ID: {s}", .{vendor_id.getVendorString()});
+
+    const cpu_info = @import("./cpuid.zig").Cpuid.read_cpu_info();
+
+    serial.println("info: {any}", .{cpu_info});
 
     gdt.init();
     idt.init();
