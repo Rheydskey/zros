@@ -29,7 +29,7 @@ const Glyph = struct {
     }
 };
 
-pub const Color = extern struct {
+pub const Color = packed struct(u32) {
     blue: u8,
     green: u8,
     red: u8,

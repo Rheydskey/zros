@@ -2,6 +2,10 @@ const outb = @import("../asm.zig").outb;
 const inb = @import("../asm.zig").inb;
 const std = @import("std");
 
+var lock = std.atomic.Value(bool).init(false);
+
+var serial_writer: Serial.SerialWriter = Serial.writer();
+
 pub fn print_err(comptime format: []const u8, args: anytype) void {
     print("[ERR] " ++ format ++ "\n", args);
 }
@@ -15,7 +19,11 @@ pub fn print(comptime format: []const u8, args: anytype) void {
 }
 
 pub fn println(comptime format: []const u8, args: anytype) void {
-    _ = Serial.writer().print(format ++ "\n", args) catch {};
+    while (lock.load(.acquire)) {}
+    lock.store(true, .seq_cst);
+    _ = serial_writer.print(format ++ "\n", args) catch {};
+
+    lock.store(false, .release);
 }
 
 pub const WriteOption = struct { linenumber: bool = false };

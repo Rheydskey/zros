@@ -5,14 +5,13 @@ const limine = @import("limine");
 const limine_rq = @import("../limine_rq.zig");
 const std = @import("std");
 const hpet = @import("../drivers/hpet.zig");
-const outb = @import("../asm.zig").outb;
-const PIC1 = @import("../drivers/pic.zig").PIC1;
-const PIC2 = @import("../drivers/pic.zig").PIC2;
+const disable_pic = @import("../drivers/pic.zig").disable_pic;
 
 pub var rspt: ?*align(1) Rspt = undefined;
 pub var rsdp: ?*align(1) Rsdp = undefined;
 pub var madt: ?*align(1) Madt = undefined;
 pub var xspt: ?*align(1) Xspt = undefined;
+pub var cpu_count: u32 = 0;
 
 pub const AcpiSDT = extern struct {
     signature: [4]u8,
@@ -97,7 +96,6 @@ pub const Madt = extern struct {
     entries: [0]u8,
 
     pub fn read_entries(self: *align(1) @This()) void {
-        var cpu_count: usize = 0;
         var entry: ?*Madt.MadtEntryHeader = undefined;
         var i: usize = 0;
         while (i < self.header.length - @sizeOf(@This())) {
@@ -106,12 +104,12 @@ pub const Madt = extern struct {
 
             switch (entry.?.entry_type) {
                 0 => {
-                    const lapic_entry: *align(1) Madt.ProcessorLocalApic = @ptrCast(entry);
+                    const lapic_entry: *align(1) Madt.ProcessorLocalApic = @ptrCast(&entry.?.entry);
                     serial.println("{any}", .{lapic_entry});
                     cpu_count += 1;
                 },
                 1 => {
-                    const ioapic_struct: *align(1) Madt.IoApic = @ptrCast(entry);
+                    const ioapic_struct: *align(1) Madt.IoApic = @ptrCast(&entry.?.entry);
                     serial.println("{any}", .{ioapic_struct});
                 },
 
@@ -168,6 +166,7 @@ pub const Madt = extern struct {
     pub const MadtEntryHeader = packed struct {
         entry_type: u8,
         length: u8,
+        entry: void,
     };
 
     pub const Iso = packed struct {
@@ -186,7 +185,7 @@ pub const Madt = extern struct {
     pub const ProcessorLocalApic = packed struct {
         processor_id: u8,
         apic_id: u8,
-        flags: u32,
+        flags: packed struct(u32) { is_enabled: bool, is_online_capable: bool, other: u30 },
     };
 };
 
@@ -252,9 +251,7 @@ pub const Mcfg = extern struct {
 };
 
 pub fn init() !void {
-    // Disabling PIC
-    outb(PIC1.data, 0xff);
-    outb(PIC2.data, 0xff);
+    disable_pic();
 
     const response = limine_rq.rspd.response orelse return error.NoRspd;
 

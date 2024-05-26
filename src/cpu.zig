@@ -74,3 +74,7 @@ pub const Cpuid = struct {
         self.edx = edx_value;
     }
 };
+
+pub fn get_id() u8 {
+    return Cpuid.read_cpu_info().ebx.local_apic_id;
+}

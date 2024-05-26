@@ -12,6 +12,7 @@ const acpi = @import("./acpi/acpi.zig");
 const ps2 = @import("./drivers/ps2.zig");
 const psf = @import("./psf.zig");
 const pci = @import("./drivers/pci.zig");
+const smp = @import("./smp.zig");
 
 const Stacktrace = struct {
     next: *Stacktrace,
@@ -59,13 +60,8 @@ pub fn main() !noreturn {
         return error.CannotWrite;
     };
 
-    const vendor_id = @import("./cpuid.zig").Cpuid.read_vendor();
-
-    serial.println("Vendor ID: {s}", .{vendor_id.getVendorString()});
-
-    const cpu_info = @import("./cpuid.zig").Cpuid.read_cpu_info();
-
-    serial.println("info: {any}", .{cpu_info});
+    const cpu = @import("./cpu.zig");
+    serial.println("id: {}", .{cpu.get_id()});
 
     gdt.init();
     idt.init();
@@ -99,6 +95,8 @@ pub fn main() !noreturn {
     serial.println("{} {any}", .{ mcfg.nb_of_entry(), mcfg.get_configuration() });
 
     pci.scan(&mcfg.get_configuration().?);
+
+    try smp.init();
 
     while (true) {
         asm volatile ("hlt");

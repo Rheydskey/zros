@@ -6,14 +6,14 @@ const hpet = @import("./hpet.zig");
 
 pub var lapic: ?Lapic = null;
 
-const Lapic = struct {
+pub const Lapic = struct {
     addr: u64,
 
-    fn read(self: *const @This(), reg: u32) u32 {
+    pub fn read(self: *const @This(), reg: u32) u32 {
         return @as(*align(1) volatile u32, @ptrFromInt(self.addr + reg)).*;
     }
 
-    fn write(self: *const @This(), reg: u32, value: u32) void {
+    pub fn write(self: *const @This(), reg: u32, value: u32) void {
         @as(*align(1) volatile u32, @ptrFromInt(self.addr + reg)).* = value;
     }
 
@@ -21,25 +21,26 @@ const Lapic = struct {
         self.write(Regs.EOI, 0);
     }
 
-    const Regs = struct {
-        const CPU_ID = 0x20;
-        const EOI = 0x0b0;
-        const SPURIOUS = 0x0f0;
-        const ICR0 = 0x300;
-        const ICR1 = 0x310;
-        const LVT_TIMER = 0x320;
-        const TIMER_INITCNT = 0x380;
-        const TIMER_CURRCNT = 0x390;
-        const TIMER_DIV = 0x3e0;
+    pub const Regs = struct {
+        pub const ERROR_STATUS = 0x280;
+        pub const CPU_ID = 0x20;
+        pub const EOI = 0x0b0;
+        pub const SPURIOUS = 0x0f0;
+        pub const ICR0 = 0x300;
+        pub const ICR1 = 0x310;
+        pub const LVT_TIMER = 0x320;
+        pub const TIMER_INITCNT = 0x380;
+        pub const TIMER_CURRCNT = 0x390;
+        pub const TIMER_DIV = 0x3e0;
     };
 
-    const ApicTimer = struct {
-        const MASKED = 0x1000;
+    pub const ApicTimer = struct {
+        pub const MASKED = 0x1000;
 
-        const LAPIC_TIMER_IRQ = 32;
-        const LAPIC_TIMER_PERIODIC = 0x20000;
+        pub const LAPIC_TIMER_IRQ = 32;
+        pub const LAPIC_TIMER_PERIODIC = 0x20000;
 
-        const Divisor = struct {
+        pub const Divisor = struct {
             const APIC_TIMER_DIVIDE_BY_2 = 0;
             const APIC_TIMER_DIVIDE_BY_4 = 1;
             const APIC_TIMER_DIVIDE_BY_8 = 2;
@@ -51,10 +52,10 @@ const Lapic = struct {
         };
     };
 
-    const LAPIC_ENABLED = 0x800;
-    const MSR_APIC_BASE = 0x1B;
-    const SPURIOUS_ALL = 0xFF;
-    const SPURIOUS_ENABLE_APIC = 0x100;
+    pub const LAPIC_ENABLED = 0x800;
+    pub const MSR_APIC_BASE = 0x1B;
+    pub const SPURIOUS_ALL = 0xFF;
+    pub const SPURIOUS_ENABLE_APIC = 0x100;
 };
 
 pub fn init() !void {
