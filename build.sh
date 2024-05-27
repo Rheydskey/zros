@@ -5,6 +5,7 @@ zig build $1
 test $? -eq 0 || exit;
 
 bash ./meta/scripts/makeiso.sh
+
 qemu-system-x86_64 -serial stdio \
                    -drive format=raw,file=zros.hdd \
                    -no-reboot \

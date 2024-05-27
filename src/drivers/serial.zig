@@ -1,10 +1,9 @@
 const outb = @import("../asm.zig").outb;
 const inb = @import("../asm.zig").inb;
 const std = @import("std");
+const sync = @import("../sync.zig");
 
-var lock = std.atomic.Value(bool).init(false);
-
-var serial_writer: Serial.SerialWriter = Serial.writer();
+var serial_writer = sync.TicketLock(Serial.SerialWriter).init(Serial.writer());
 
 pub fn print_err(comptime format: []const u8, args: anytype) void {
     print("[ERR] " ++ format ++ "\n", args);
@@ -19,11 +18,10 @@ pub fn print(comptime format: []const u8, args: anytype) void {
 }
 
 pub fn println(comptime format: []const u8, args: anytype) void {
-    while (lock.load(.acquire)) {}
-    lock.store(true, .seq_cst);
-    _ = serial_writer.print(format ++ "\n", args) catch {};
+    const writer = serial_writer.lock();
+    defer serial_writer.unlock();
 
-    lock.store(false, .release);
+    _ = writer.print(format ++ "\n", args) catch {};
 }
 
 pub const WriteOption = struct { linenumber: bool = false };

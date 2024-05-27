@@ -13,7 +13,7 @@ const AsmPath = struct {
 pub fn nasm_to(comptime file: AsmPath, exe: *std.Build.Step.Compile) !void {
     var alloc = std.heap.GeneralPurposeAllocator(.{}){};
     const output = "./zig-cache/nasm/" ++ file.file_name ++ ".o";
-    var child = std.process.Child.init(&[_][]const u8{ "nasm", file.path_file, "-f", "elf64", "-w+all", "-o", output }, alloc.allocator());
+    var child = std.process.Child.init(&[_][]const u8{ "nasm", file.path_file, "-f", "elf64", "-o", output }, alloc.allocator());
     _ = try child.spawnAndWait();
 
     exe.addObjectFile(std.Build.LazyPath{ .cwd_relative = output });

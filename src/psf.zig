@@ -56,6 +56,10 @@ pub const Psf2 = packed struct {
         const bytesperlines: u32 = (self.header.width + 7) / 16;
         const glyph: u32 = (self.header.glyph_size * nb) / 2;
 
-        return GlyphIter{ .base = glyphs[glyph..], .max = self.header.height * bytesperlines, .step = 1 };
+        return GlyphIter{
+            .base = glyphs[glyph..],
+            .max = self.header.height * bytesperlines,
+            .step = 1,
+        };
     }
 };
