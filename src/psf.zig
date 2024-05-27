@@ -1,22 +1,24 @@
 pub const serial = @import("./drivers/serial.zig");
 
+// http://www.zap.org.au/projects/console-fonts-lucida/
 pub const lucida = @embedFile("./font/lucida-10x16.psf");
 
 pub const GlyphIter = struct {
-    base: [*]const u16,
+    base: [*]const u8,
     cur: u32 = 0,
     max: u32,
-    step: u32 = 1,
+    step: u32 = 2,
 
     pub fn iter(self: *@This()) ?u16 {
         if (self.cur + self.step > self.max) {
             return null;
         }
 
-        const result = self.base[self.cur] << 1;
+        const high_part = self.base[self.cur];
+        const low_part = self.base[self.cur + 1];
         self.cur += self.step;
 
-        return result;
+        return (@as(u16, high_part) << 8 | @as(u16, low_part)) >> 6;
     }
 };
 
@@ -57,9 +59,38 @@ pub const Psf2 = packed struct {
         const glyph: u32 = (self.header.glyph_size * nb) / 2;
 
         return GlyphIter{
-            .base = glyphs[glyph..],
-            .max = self.header.height * bytesperlines,
-            .step = 1,
+            .base = @ptrCast(glyphs[glyph..]),
+            .max = self.header.height * bytesperlines * 2,
+            // .step = 1,
         };
     }
 };
+
+test "read" {
+    const std = @import("std");
+
+    const a: *align(1) const Psf2 = @ptrCast(lucida);
+
+    var glyph = a.readGlyph(0xDB);
+
+    while (glyph.iter()) |i| {
+        try std.testing.expectFmt("1111111111", "{b}", .{i});
+    }
+}
+
+test "read_a" {
+    const std = @import("std");
+
+    const a: *align(1) const Psf2 = @ptrCast(lucida);
+
+    var glyph = a.readGlyph(0x61);
+
+    for (0..6) |_| {
+        const value = glyph.iter();
+        try std.testing.expectFmt("0", "{b}", .{value.?});
+    }
+
+    if (glyph.iter()) |v| {
+        try std.testing.expectFmt("11110000", "{b}", .{v});
+    }
+}
