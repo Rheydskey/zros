@@ -16,7 +16,7 @@ extern const rodata_end_addr: u64;
 extern const data_start_addr: u64;
 extern const data_end_addr: u64;
 
-var kernel_pml4: *Pml = undefined;
+var kernel_pml4: ?*Pml = null;
 
 const PmlE = packed union { raw: u64, entry: PmlEntry };
 
@@ -45,7 +45,7 @@ const PmlEntry = packed struct(u64) {
 
 const Pml = struct { entries: [512]PmlE };
 
-inline fn PMLX_get_index(addr: u64, level: u8) u64 {
+inline fn PMLX_get_index(addr: u64, comptime level: u8) u64 {
     const shift: u64 = 12 + level * 9;
     return (addr & (0x1ff << shift)) >> shift;
 }
@@ -83,7 +83,7 @@ pub fn init(hhdm: *limine.HhdmResponse) !void {
     kernel_pml4 = @ptrFromInt(@intFromPtr(alloc_page) + hhdm.offset);
 
     for (256..512) |i| {
-        _ = get_next_level(kernel_pml4, i) catch {
+        _ = get_next_level(kernel_pml4.?, i) catch {
             @panic("ouppps");
         };
     }
@@ -94,8 +94,8 @@ pub fn init(hhdm: *limine.HhdmResponse) !void {
 
     var addr: u64 = pmm.PAGE_SIZE;
     while (addr < 0x100000000) : (addr += pmm.PAGE_SIZE) {
-        try alloc(kernel_pml4, addr, addr, PmlEntryFlag.PRESENT | PmlEntryFlag.READ_WRITE);
-        try alloc(kernel_pml4, addr + hhdm.offset, addr, PmlEntryFlag.PRESENT | PmlEntryFlag.READ_WRITE | PmlEntryFlag.NOX);
+        try alloc(kernel_pml4.?, addr, addr, PmlEntryFlag.PRESENT | PmlEntryFlag.READ_WRITE);
+        try alloc(kernel_pml4.?, addr + hhdm.offset, addr, PmlEntryFlag.PRESENT | PmlEntryFlag.READ_WRITE | PmlEntryFlag.NOX);
     }
 
     const memmap = limine_rq.memory_map.response.?;
@@ -116,12 +116,12 @@ pub fn init(hhdm: *limine.HhdmResponse) !void {
                 continue;
             }
 
-            try alloc(kernel_pml4, j, j, PmlEntryFlag.PRESENT | PmlEntryFlag.READ_WRITE);
-            try alloc(kernel_pml4, j + hhdm.offset, j, PmlEntryFlag.PRESENT | PmlEntryFlag.READ_WRITE | PmlEntryFlag.NOX);
+            try alloc(kernel_pml4.?, j, j, PmlEntryFlag.PRESENT | PmlEntryFlag.READ_WRITE);
+            try alloc(kernel_pml4.?, j + hhdm.offset, j, PmlEntryFlag.PRESENT | PmlEntryFlag.READ_WRITE | PmlEntryFlag.NOX);
         }
     }
     serial.println("Switch pagemap", .{});
-    switch_to_pagemap(@intFromPtr(kernel_pml4) - hhdm.offset);
+    switch_to_pagemap(@intFromPtr(kernel_pml4.?) - hhdm.offset);
 }
 
 fn get_next_level(pml: *Pml, index: u64) !*Pml {
@@ -160,7 +160,7 @@ fn map_section_range(start_addr: u64, end_addr: u64, flags: u64) !void {
     while (text_addr < utils.align_up(end_addr, pmm.PAGE_SIZE)) : (text_addr += pmm.PAGE_SIZE) {
         const kaddr = limine_rq.kaddr_req.response.?;
         const physical: usize = text_addr - kaddr.virtual_base + kaddr.physical_base;
-        try alloc(kernel_pml4, text_addr, physical, flags);
+        try alloc(kernel_pml4.?, text_addr, physical, flags);
     }
 }
 

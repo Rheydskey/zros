@@ -8,6 +8,14 @@ const Glyph = struct {
     color_fg: Color,
     color_bg: Color,
 
+    pub inline fn getColor(self: *const @This(), is_foreground: bool) Color {
+        if (is_foreground) {
+            return self.color_fg;
+        }
+
+        return self.color_bg;
+    }
+
     pub fn writeGlyph(self: *const @This(), x: usize, y: usize, fb: *const Framebuffer) void {
         var iter = self.font.readGlyph(self.character);
         var offset: u64 = y;
@@ -15,11 +23,7 @@ const Glyph = struct {
             var bit = lines;
 
             for (0..10) |i| {
-                if ((bit & 1) == 1) {
-                    fb.writePixel(10 - i + x, offset, self.color_fg);
-                } else {
-                    fb.writePixel(10 - i + x, offset, self.color_bg);
-                }
+                fb.writePixel(10 - i + x, offset, self.getColor((bit & 1) == 1));
 
                 bit >>= 1;
             }

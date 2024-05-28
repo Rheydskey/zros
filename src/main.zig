@@ -13,6 +13,7 @@ const ps2 = @import("./drivers/ps2.zig");
 const psf = @import("./psf.zig");
 const pci = @import("./drivers/pci.zig");
 const smp = @import("./smp.zig");
+const syscall = @import("syscall.zig");
 
 const Stacktrace = struct {
     next: *Stacktrace,
@@ -97,7 +98,7 @@ pub fn main() !noreturn {
     pci.scan(&mcfg.get_configuration().?);
 
     try smp.init();
-
+    syscall.init();
     while (true) {
         asm volatile ("hlt");
     }

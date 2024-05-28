@@ -68,6 +68,8 @@ pub fn build(b: *std.Build) !void {
 
     try nasm_to(.{ .path_file = "./src/idt/interrupt.s", .file_name = "interrupt" }, exe);
 
+    try nasm_to(.{ .path_file = "./src/syscall.s", .file_name = "syscall" }, exe);
+
     b.installArtifact(exe);
 
     const exe_unit_tests = b.addTest(.{
