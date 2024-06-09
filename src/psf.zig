@@ -61,7 +61,6 @@ pub const Psf2 = packed struct {
         return GlyphIter{
             .base = @ptrCast(glyphs[glyph..]),
             .max = self.header.height * bytesperlines * 2,
-            // .step = 1,
         };
     }
 };
@@ -92,5 +91,22 @@ test "read_a" {
 
     if (glyph.iter()) |v| {
         try std.testing.expectFmt("11110000", "{b}", .{v});
+    }
+}
+
+test "read_a0" {
+    const std = @import("std");
+
+    const a: *align(1) const Psf2 = @ptrCast(lucida);
+
+    var glyph = a.readGlyph(0xA0);
+
+    for (0..8) |i| {
+        const value = glyph.iter();
+        if (i % 2 == 0) {
+            try std.testing.expectFmt("101010101", "{b}", .{value.?});
+        } else {
+            try std.testing.expectFmt("1010101010", "{b}", .{value.?});
+        }
     }
 }
