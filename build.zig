@@ -26,8 +26,9 @@ pub fn build(b: *std.Build) !void {
 
     build_options.addOption(bool, "release_mode", optimize != .Debug);
     build_options.addOption([]const u8, "git_version", get_git_version(b));
+
     var cross =
-        std.zig.CrossTarget{
+        std.Target.Query{
         .cpu_arch = std.Target.Cpu.Arch.x86_64,
         .os_tag = .freestanding,
         .abi = std.Target.Abi.none,
@@ -73,10 +74,13 @@ pub fn build(b: *std.Build) !void {
     b.installArtifact(exe);
 
     const exe_unit_tests = b.addTest(.{
-        .root_source_file = b.path("src/psf.zig"),
+        .root_source_file = b.path("src/test.zig"),
         .target = b.standardTargetOptions(.{}),
         .optimize = optimize,
     });
+
+    exe_unit_tests.root_module.addImport("limine", limine.module("limine"));
+    exe_unit_tests.root_module.addOptions("build_options", build_options);
 
     const run_exe_unit_tests = b.addRunArtifact(exe_unit_tests);
     // Similar to creating the run step earlier, this exposes a `test` step to

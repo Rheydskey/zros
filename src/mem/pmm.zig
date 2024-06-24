@@ -4,12 +4,14 @@ const utils = @import("../utils.zig");
 const serial = @import("../drivers/serial.zig");
 const limine = @import("limine");
 
-pub const PAGE_SIZE = 0x1000; // 0x1000 = 4Kb
+const Pmm = @This();
+
+pub const PAGE_SIZE = 0x1000; // 0x1000 = 4Kib
 
 var bitmap: ?ds.BitMapU8 = null;
 var last_usable_page: u64 = 0;
 var base: ?u64 = null;
-var available: u64 = 0;
+var usable_size: usize = 0;
 
 fn find_block_for_bitmap(mmap: *limine.MemoryMapResponse, bitmap_size: u64) !*limine.MemoryMapEntry {
     for (mmap.entries()) |entry| {
@@ -21,17 +23,15 @@ fn find_block_for_bitmap(mmap: *limine.MemoryMapResponse, bitmap_size: u64) !*li
             return entry;
         }
     }
-
+    serial.print_err("Try to allocate {} but memory size is {}", .{ bitmap_size, usable_size });
     return error.NotEnoughtMem;
 }
 
 pub fn pmm_init(mmap: *limine.MemoryMapResponse, hhdm: *limine.HhdmResponse) !void {
     base = hhdm.offset;
-    const entries = mmap.entries();
     var highest_addr: u64 = 0;
-    var usable_size: usize = 0;
 
-    for (entries) |entry| {
+    for (mmap.entries()) |entry| {
         switch (entry.kind) {
             .usable => {
                 const end_addr = entry.base + entry.length;
@@ -54,7 +54,7 @@ pub fn pmm_init(mmap: *limine.MemoryMapResponse, hhdm: *limine.HhdmResponse) !vo
 
     serial.println("Usable memory size is {}", .{usable_size});
 
-    const bitmap_size = utils.align_up(highest_addr / PAGE_SIZE / 8, PAGE_SIZE);
+    const bitmap_size = utils.align_up(highest_addr / PAGE_SIZE / 8 + 1, PAGE_SIZE);
 
     var bitmap_block = try find_block_for_bitmap(mmap, bitmap_size);
 
@@ -64,14 +64,11 @@ pub fn pmm_init(mmap: *limine.MemoryMapResponse, hhdm: *limine.HhdmResponse) !vo
     bitmap_block.base += bitmap_size;
     bitmap_block.length -= bitmap_size;
 
-    for (entries) |entry| {
+    for (mmap.entries()) |entry| {
         if (entry.kind == .usable) {
-            serial.println("MMAP - base: 0x{X}-0x{X} kind: {}", .{ entry.base, entry.base + entry.length, entry.kind });
             var i: u64 = entry.base;
-            while (i < entry.base + entry.length) {
+            while (i < entry.base + entry.length) : (i += PAGE_SIZE) {
                 bitmap.?.unset(i / PAGE_SIZE);
-
-                i += PAGE_SIZE;
             }
         }
     }
@@ -81,16 +78,11 @@ pub fn pmm_init(mmap: *limine.MemoryMapResponse, hhdm: *limine.HhdmResponse) !vo
     serial.print_ok("PMM", .{});
 }
 
-pub fn available_page() u64 {
-    return available;
-}
-
 pub fn alloc(size: usize) !*void {
     // TODO: OPTIMIZATION
     const size_needed: u64 = size / PAGE_SIZE;
     var length_free_block: u64 = 0;
 
-    // debug();
     for (0..bitmap.?.size) |i| {
         if (bitmap.?.get(i) == ds.State.Used) {
             length_free_block = 0;
@@ -117,4 +109,36 @@ pub fn free(ptr: *void, size: usize) !void {
 
 pub fn debug() void {
     bitmap.?.debug();
+}
+
+test "try_alloc" {
+    var gpa = @import("std").heap.GeneralPurposeAllocator(.{}){};
+    const allocator = gpa.allocator();
+    const fakememorysize = PAGE_SIZE * 3;
+
+    var entry =
+        limine.MemoryMapEntry{
+        .base = 0,
+        .length = fakememorysize,
+        .kind = .usable,
+    };
+    var entries = [_]*limine.MemoryMapEntry{&entry};
+    var mmap = limine.MemoryMapResponse{
+        .revision = 0,
+        .entry_count = 1,
+        .entries_ptr = &entries,
+    };
+    var hhdm = limine.HhdmResponse{
+        .revision = 0,
+        .offset = @intFromPtr(try allocator.create([fakememorysize]u8)),
+    };
+
+    try Pmm.pmm_init(
+        &mmap,
+        &hhdm,
+    );
+
+    try @import("std").testing.expectEqual(.Used, bitmap.?.get(0));
+    try @import("std").testing.expectEqual(.Unused, bitmap.?.get(1));
+    try @import("std").testing.expectEqual(.Unused, bitmap.?.get(2));
 }

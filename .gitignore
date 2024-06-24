@@ -1,5 +1,6 @@
 zig-out
 zig-cache
+.zig-cache
 iso_root
 bx_enh_dbg.ini
 .vscode

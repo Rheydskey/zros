@@ -14,14 +14,18 @@ pub fn print_ok(comptime format: []const u8, args: anytype) void {
 }
 
 pub fn print(comptime format: []const u8, args: anytype) void {
-    _ = Serial.writer().print(format, args) catch {};
+    if (@import("builtin").is_test) {
+        @import("std").debug.print(format, args);
+    } else {
+        const writer = serial_writer.lock();
+        defer serial_writer.unlock();
+
+        writer.print(format, args) catch {};
+    }
 }
 
 pub fn println(comptime format: []const u8, args: anytype) void {
-    const writer = serial_writer.lock();
-    defer serial_writer.unlock();
-
-    _ = writer.print(format ++ "\n", args) catch {};
+    print(format ++ "\n", args);
 }
 
 pub const WriteOption = struct { linenumber: bool = false };

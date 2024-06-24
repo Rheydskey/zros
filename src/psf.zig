@@ -1,4 +1,4 @@
-pub const serial = @import("./drivers/serial.zig");
+const serial = @import("./drivers/serial.zig");
 
 // http://www.zap.org.au/projects/console-fonts-lucida/
 pub const lucida = @embedFile("./font/lucida-10x16.psf");

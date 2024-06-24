@@ -6,6 +6,7 @@ const pmm = @import("pmm.zig");
 const utils = @import("../utils.zig");
 
 const VMM_ADDR_MASK: u64 = 0x000ffffffffff000;
+const MAX_MEMORY: u64 = 0x100_000_000;
 
 extern const text_start_addr: [*]u8;
 extern const text_end_addr: [*]u8;
@@ -93,7 +94,7 @@ pub fn init(hhdm: *limine.HhdmResponse) !void {
     try map_section_range(@intFromPtr(&rodata_start_addr), @intFromPtr(&rodata_end_addr), PmlEntryFlag.PRESENT | PmlEntryFlag.NOX);
 
     var addr: u64 = pmm.PAGE_SIZE;
-    while (addr < 0x100000000) : (addr += pmm.PAGE_SIZE) {
+    while (addr < MAX_MEMORY) : (addr += pmm.PAGE_SIZE) {
         try alloc(kernel_pml4.?, addr, addr, PmlEntryFlag.PRESENT | PmlEntryFlag.READ_WRITE);
         try alloc(kernel_pml4.?, addr + hhdm.offset, addr, PmlEntryFlag.PRESENT | PmlEntryFlag.READ_WRITE | PmlEntryFlag.NOX);
     }
@@ -105,14 +106,14 @@ pub fn init(hhdm: *limine.HhdmResponse) !void {
         const base = utils.align_down(entry.base, pmm.PAGE_SIZE);
         const top = utils.align_up(entry.base + entry.length, pmm.PAGE_SIZE);
 
-        if (top <= 0x100_000_000) {
+        if (top <= MAX_MEMORY) {
             continue;
         }
 
         var j: u64 = base;
 
         while (j < top) : (j += pmm.PAGE_SIZE) {
-            if (j < 0x100_000_00) {
+            if (j < 0x10_000_000) {
                 continue;
             }
 
