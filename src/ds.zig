@@ -96,9 +96,9 @@ pub const BitMapU8 = struct {
         var state = self.get(start);
         for (0..self.size) |i| {
             if (state != self.get(i)) {
-                serial.println("0x{x} - 0x{x} : {s}", .{ start, start + i - 1, @tagName(state) });
+                serial.println("0x{x} - 0x{x} : {s}", .{ start, i, @tagName(state) });
                 state = state.flip();
-                start = start + i;
+                start = i;
             }
         }
 
