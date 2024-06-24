@@ -111,7 +111,7 @@ pub fn debug() void {
     bitmap.?.debug();
 }
 
-test "try_alloc" {
+fn inittest() !u64 {
     var gpa = @import("std").heap.GeneralPurposeAllocator(.{}){};
     const allocator = gpa.allocator();
     const fakememorysize = PAGE_SIZE * 3;
@@ -133,12 +133,33 @@ test "try_alloc" {
         .offset = @intFromPtr(try allocator.create([fakememorysize]u8)),
     };
 
-    try Pmm.pmm_init(
+    try pmm_init(
         &mmap,
         &hhdm,
     );
 
+    return hhdm.offset;
+}
+
+test "try_alloc" {
+    _ = try inittest();
+
     try @import("std").testing.expectEqual(.Used, bitmap.?.get(0));
     try @import("std").testing.expectEqual(.Unused, bitmap.?.get(1));
     try @import("std").testing.expectEqual(.Unused, bitmap.?.get(2));
+}
+
+test "free_alloc" {
+    const addr = try inittest();
+
+    try @import("std").testing.expectEqual(.Used, bitmap.?.get(0));
+    try @import("std").testing.expectEqual(.Unused, bitmap.?.get(1));
+    try @import("std").testing.expectEqual(.Unused, bitmap.?.get(2));
+
+    debug();
+
+    try free(@ptrFromInt(addr), 1);
+
+    try @import("std").testing.expectEqual(.Unused, bitmap.?.get(0));
+    debug();
 }
