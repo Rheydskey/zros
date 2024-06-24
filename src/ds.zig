@@ -105,3 +105,37 @@ pub const BitMapU8 = struct {
         serial.println("0x{x} - 0x{x} : {s}", .{ start, self.size, @tagName(state) });
     }
 };
+
+test "init_bitmap" {
+    var gpa = @import("std").heap.GeneralPurposeAllocator(.{}){};
+    const alloc = gpa.allocator();
+    const mem = try alloc.alloc(u8, 20);
+    var bm = BitMapU8.new(@ptrCast(mem), 20 * 8);
+
+    bm.init();
+    bm.set(0);
+    bm.set(bm.size);
+
+    const expect = @import("std").testing.expectEqual;
+
+    try expect(.Used, bm.get(0));
+    try expect(.Used, bm.get(bm.size));
+}
+
+test "set_unset_bitmap" {
+    var gpa = @import("std").heap.GeneralPurposeAllocator(.{}){};
+    const alloc = gpa.allocator();
+    const mem = try alloc.alloc(u8, 20);
+    var bm = BitMapU8.new(@ptrCast(mem), 20 * 8);
+
+    bm.init();
+    bm.set(0);
+
+    const expect = @import("std").testing.expectEqual;
+
+    try expect(.Used, bm.get(0));
+
+    bm.unset(0);
+
+    try expect(.Unused, bm.get(0));
+}
