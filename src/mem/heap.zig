@@ -110,7 +110,7 @@ pub fn alloc(self: *align(1) Heap, size: usize) ![]u8 {
         header = @ptrCast(header.next_block.?);
     }
 
-    if (size > header.size and header.next_block == null) {
+    if (size + @sizeOf(AllocHeader) > header.size and header.next_block == null) {
         return error.NotEnougthMem;
     }
 
@@ -158,22 +158,21 @@ pub fn free(base: anytype) !void {
     header.is_free = true;
 }
 
-test "alloc" {
+fn test_heap() Heap {
     var gpa = @import("std").heap.GeneralPurposeAllocator(.{}){};
     const allocator = gpa.allocator();
     const mem = try allocator.alloc(u8, 4096);
-    var heap = init(@ptrCast(mem), 4096);
-    const allocated = try heap.alloc(200);
+    return init(@ptrCast(mem), 4096);
+}
 
+test "alloc" {
+    var heap = test_heap();
+    const allocated = try heap.alloc(200);
     try @import("std").testing.expectEqual(200, allocated.len);
 }
 
 test "alloc_and_free" {
-    var gpa = @import("std").heap.GeneralPurposeAllocator(.{}){};
-    const allocator = gpa.allocator();
-    const mem = try allocator.alloc(u8, 4096);
-    var heap = init(@ptrCast(mem), 4096);
-
+    var heap = test_heap();
     const allocated = try heap.alloc(200);
 
     try @import("std").testing.expectEqual(200, allocated.len);
@@ -184,14 +183,8 @@ test "alloc_and_free" {
 }
 
 test "alloc_twice" {
-    var gpa = @import("std").heap.GeneralPurposeAllocator(.{}){};
-    const allocator = gpa.allocator();
-    const mem = try allocator.alloc(u8, 4096);
-    var heap = init(@ptrCast(mem), 4096);
+    var heap = test_heap();
     const allocated = try heap.alloc(200);
-
-    try @import("std").testing.expectEqual(200, allocated.len);
-
     const allocated_twice = try heap.alloc(200);
 
     try @import("std").testing.expectEqual(200, allocated_twice.len);
@@ -201,4 +194,17 @@ test "alloc_twice" {
     try free(allocated_twice);
 
     try @import("std").testing.expectEqual(4096, AllocHeader.getHeader(@ptrCast(heap.hbase.?)).size);
+}
+
+test "alloc_too_much" {
+    var heap = test_heap();
+
+    try @import("std").testing.expectError(error.NotEnougthMem, heap.alloc(4096));
+}
+
+test "alloc_max" {
+    var heap = test_heap();
+
+    const allocated = try heap.alloc(4096 - @sizeOf(AllocHeader));
+    try @import("std").testing.expectEqual(4096 - @sizeOf(AllocHeader), allocated.len);
 }
