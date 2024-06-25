@@ -88,6 +88,39 @@ const AllocHeader = packed struct {
 
         return error.NoNext;
     }
+
+    pub fn debug(self: *align(1) AllocHeader) void {
+        const Debug = struct {
+            pub fn drawArrow() void {
+                serial.println("{s: >12}|", .{""});
+                serial.println("{s: >11}/", .{""});
+                serial.println("{s: >10}v", .{""});
+            }
+
+            pub fn drawBox(is_free: bool, size: usize) void {
+                serial.println("{0s: >6}+{0s:->14}+", .{""});
+                if (is_free) {
+                    serial.println("{s: >6}|{s: ^14}|", .{ "", "free" });
+                } else {
+                    serial.println("{s: >6}|{s: ^14}|", .{ "", "used" });
+                }
+
+                serial.println("{s: >6}|{: ^14}|", .{ "", size });
+
+                serial.println("{0s: >6}+{0s:->14}+", .{""});
+            }
+        };
+        serial.println("0x{x} 0x{x}", .{ @intFromPtr(self), @intFromPtr(self) + self.size });
+        Debug.drawBox(self.is_free, self.size);
+
+        if (self.next_block == null) {
+            Debug.drawArrow();
+            serial.println("{s: ^20}", .{"null"});
+        } else {
+            Debug.drawArrow();
+            AllocHeader.getHeader(self.next_block.?).debug();
+        }
+    }
 };
 
 pub fn init(base: [*]u8, size: usize) Heap {
@@ -161,7 +194,9 @@ pub fn free(base: anytype) !void {
 fn test_heap() Heap {
     var gpa = @import("std").heap.GeneralPurposeAllocator(.{}){};
     const allocator = gpa.allocator();
-    const mem = try allocator.alloc(u8, 4096);
+    const mem = allocator.alloc(u8, 4096) catch {
+        @panic("Cannot run test");
+    };
     return init(@ptrCast(mem), 4096);
 }
 
