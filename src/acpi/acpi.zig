@@ -13,38 +13,33 @@ pub var madt: ?*align(1) Madt = undefined;
 pub var xspt: ?*align(1) Xspt = undefined;
 pub var cpu_count: u32 = 0;
 
-pub const AcpiSDT = extern struct {
-    signature: [4]u8,
+pub const AcpiSDT = packed struct(u288) {
+    signature: u32,
     length: u32,
     revision: u8,
     checksum: u8,
-    oem_id: [6]u8,
-    oem_table_id: [8]u8,
+    oem_id: u48,
+    oem_table_id: u64,
     oem_revision: u32,
     creator_id: u32,
     creator_revision: u32,
-
-    comptime {
-        if (!(@sizeOf(@This()) == 36)) {
-            @compileError("Bad size for" ++ @typeName(@This()));
-        }
-    }
 };
 
-const Xspt = extern struct {
+const Xspt = packed struct {
     header: AcpiSDT,
-    stdAddr: [0]u64 align(4),
+    stdAddr: void,
 
     pub inline fn length(self: *align(1) @This()) u64 {
         return @divExact(self.header.length - @sizeOf(AcpiSDT), @sizeOf(u64));
     }
 
     pub fn get(self: *align(1) @This(), name: *const []const u8) !*Xspt {
-        const entries = @as([*]u64, &self.stdAddr)[0..self.length()];
+        const entries = @as([*]u64, @alignCast(@ptrCast(&self.stdAddr)))[0..self.length()];
         for (entries) |entry| {
             const ptr: *Xspt = @ptrFromInt(entry + limine_rq.hhdm.response.?.offset);
+            const signature_as_slice: [*]u8 = @ptrCast(&ptr.header.signature);
 
-            if (std.mem.eql(u8, &ptr.header.signature, name.*)) {
+            if (std.mem.eql(u8, signature_as_slice[0..4], name.*)) {
                 return ptr;
             }
         }
@@ -57,20 +52,21 @@ const Xspt = extern struct {
     }
 };
 
-const Rspt = extern struct {
+const Rspt = packed struct(u288) {
     header: AcpiSDT,
-    stdAddr: [0]u32,
+    stdAddr: void,
 
     pub inline fn length(self: *align(1) @This()) u32 {
         return @divExact(self.header.length - @sizeOf(AcpiSDT), @sizeOf(u32));
     }
 
     pub fn get(self: *align(1) @This(), name: *const []const u8) !*Rspt {
-        const entries = @as([*]u32, &self.stdAddr)[0..self.length()];
+        const entries = @as([*]u32, @alignCast(@ptrCast(&self.stdAddr)))[0..self.length()];
         for (entries) |entry| {
             const ptr: *Rspt = @ptrFromInt(entry + limine_rq.hhdm.response.?.offset);
+            const signature_as_slice: [*]u8 = @ptrCast(&ptr.header.signature);
 
-            if (std.mem.eql(u8, &ptr.header.signature, name.*)) {
+            if (std.mem.eql(u8, signature_as_slice[0..4], name.*)) {
                 return ptr;
             }
         }
@@ -81,19 +77,13 @@ const Rspt = extern struct {
     pub fn get_apic(self: *align(1) @This()) !*align(1) Madt {
         return @ptrCast(try self.get(&"APIC"));
     }
-
-    comptime {
-        if (!(@sizeOf(@This()) == 36)) {
-            @compileError("Bad size for " ++ @typeName(@This()));
-        }
-    }
 };
 
-pub const Madt = extern struct {
+pub const Madt = packed struct {
     header: AcpiSDT,
     lapic_addr: u32,
     flags: u32,
-    entries: [0]u8,
+    entries: void,
 
     pub fn read_entries(self: *align(1) @This()) void {
         var entry: ?*Madt.MadtEntryHeader = undefined;
@@ -189,7 +179,7 @@ pub const Madt = extern struct {
     };
 };
 
-const Rsdp = packed struct {
+const Rsdp = packed struct(u288) {
     signature: u64,
     checksum: u8,
     oem_id: u48,
@@ -199,10 +189,6 @@ const Rsdp = packed struct {
     xsdt: u64,
     extend_checksum: u8,
     reserved: u24,
-
-    comptime {
-        @import("../utils.zig").checkSize(Rsdp, @sizeOf(u288));
-    }
 
     pub inline fn get_xsdt(self: *align(1) @This()) !*align(1) Xspt {
         if (self.revision <= 1) {
@@ -226,9 +212,9 @@ pub fn get_rspd() !*Rsdp {
     return @alignCast(@ptrCast(response.address));
 }
 
-pub const Mcfg = extern struct {
+pub const Mcfg = packed struct(u352) {
     header: AcpiSDT,
-    reserved: u64 align(1),
+    reserved: u64,
     configuration: void,
 
     pub const Configuration = packed struct(u128) {

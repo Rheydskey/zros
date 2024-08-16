@@ -6,23 +6,19 @@ const checkSize = @import("../utils.zig").checkSize;
 pub var hpet: ?Hpet = null;
 var clock: u64 = 0;
 
-const AcpiHpet = extern struct {
-    header: acpi.AcpiSDT align(1),
-    rev_id: u8 align(1),
-    info: u8 align(1),
-    vendor_id: u16 align(1),
-    address_space: u8 align(1),
-    register_bit_width: u8 align(1),
-    register_bit_offset: u8 align(1),
-    reserved: u8 align(1),
-    address: u64 align(1),
-    hpet_num: u8 align(1),
-    minimum_tick: u16 align(1),
-    page_protection: u8 align(1),
-
-    comptime {
-        checkSize(@This(), 56);
-    }
+const AcpiHpet = packed struct(u448) {
+    header: acpi.AcpiSDT,
+    rev_id: u8,
+    info: u8,
+    vendor_id: u16,
+    address_space: u8,
+    register_bit_width: u8,
+    register_bit_offset: u8,
+    reserved: u8,
+    address: u64,
+    hpet_num: u8,
+    minimum_tick: u16,
+    page_protection: u8,
 };
 
 const Hpet = packed struct {
