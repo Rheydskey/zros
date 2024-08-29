@@ -10,11 +10,10 @@ const AsmPath = struct {
     file_name: []const u8,
 };
 
-pub fn nasm_to(comptime file: AsmPath, exe: *std.Build.Step.Compile) !void {
-    var alloc = std.heap.GeneralPurposeAllocator(.{}){};
+pub fn nasm_to(b: *std.Build, comptime file: AsmPath, exe: *std.Build.Step.Compile) !void {
     const output = "./zig-cache/nasm/" ++ file.file_name ++ ".o";
-    var child = std.process.Child.init(&[_][]const u8{ "nasm", file.path_file, "-f", "elf64", "-o", output }, alloc.allocator());
-    _ = try child.spawnAndWait();
+
+    _ = b.run(&[_][]const u8{ "nasm", file.path_file, "-f", "elf64", "-o", output });
 
     exe.addObjectFile(std.Build.LazyPath{ .cwd_relative = output });
 }
@@ -63,13 +62,13 @@ pub fn build(b: *std.Build) !void {
 
     std.fs.cwd().makePath("./zig-cache/nasm") catch {};
 
-    try nasm_to(.{ .path_file = "./src/gdt/gdt.s", .file_name = "gdt" }, exe);
+    try nasm_to(b, .{ .path_file = "./src/gdt/gdt.s", .file_name = "gdt" }, exe);
 
-    try nasm_to(.{ .path_file = "./src/idt/idt.s", .file_name = "idt" }, exe);
+    try nasm_to(b, .{ .path_file = "./src/idt/idt.s", .file_name = "idt" }, exe);
 
-    try nasm_to(.{ .path_file = "./src/idt/interrupt.s", .file_name = "interrupt" }, exe);
+    try nasm_to(b, .{ .path_file = "./src/idt/interrupt.s", .file_name = "interrupt" }, exe);
 
-    try nasm_to(.{ .path_file = "./src/syscall.s", .file_name = "syscall" }, exe);
+    try nasm_to(b, .{ .path_file = "./src/syscall.s", .file_name = "syscall" }, exe);
 
     b.installArtifact(exe);
 
