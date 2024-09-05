@@ -1,6 +1,21 @@
 const utils = @import("utils.zig");
 const Msr = utils.Msr;
 
+pub extern fn load_ring_3(u64, u64) void;
+pub fn load_ring_3_z(stack: u64, code: u64) void {
+    asm volatile (
+        \\ push 0x23 // user ss 
+        \\ push %[stack]
+        \\ push 0x202 // rflags
+        \\ push 0x1B // user cs
+        \\ push %[code]
+        \\ iretq
+        :
+        : [stack] "r" (stack),
+          [code] "r" (code),
+    );
+}
+
 extern fn prepare_syscall_handler() void;
 
 // https://github.com/brutal-org/brutal/blob/d458fa9ca9d7b88dd62dbbc715bf02feaca21d99/sources/kernel/x86_64/syscall.c
@@ -20,6 +35,6 @@ fn set_gs(addr: usize) void {
     Msr.write(Msr.Regs.KERN_GS_BASE, addr);
 }
 
-export fn syscall_handler() void {
+export fn syscall_handler() callconv(.C) void {
     @import("./drivers/serial.zig").println("I'M IN SYSCALL !!", .{});
 }

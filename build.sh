@@ -14,7 +14,7 @@ else
 fi
 
 
-qemu-system-x86_64 -serial stdio \
+qemu-system-x86_64 -serial mon:stdio \
                    -drive format=raw,file=zros.hdd \
                    -no-reboot \
                    -no-shutdown \
@@ -22,6 +22,6 @@ qemu-system-x86_64 -serial stdio \
                    -M q35 \
                    -smp 4 \
                    -bios $file \
-                   -enable-kvm
+                   -enable-kvm \
                    # -d int,cpu_reset,in_asm \
                    # -s -S

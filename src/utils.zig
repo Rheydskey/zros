@@ -79,7 +79,7 @@ pub fn read_msr(msr: u64) u64 {
 pub fn checkSize(cmp: type, expected_size: u64) void {
     comptime {
         const comptimePrint = @import("std").fmt.comptimePrint;
-        if (!(@sizeOf(cmp) == expected_size)) {
+        if (@sizeOf(cmp) != expected_size) {
             @compileError(comptimePrint("Bad size({} instead of {}) for " ++ @typeName(cmp), .{ @sizeOf(cmp), expected_size }));
         }
     }

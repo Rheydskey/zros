@@ -1,5 +1,6 @@
 [bits 64]
 
+global load_gdt
 load_gdt:
     lgdt [rdi]
 
@@ -20,4 +21,8 @@ load_gdt:
 
     retfq
 
-global load_gdt
+global load_tss
+load_tss:
+    mov ax, 0x28
+    ltr ax
+    ret

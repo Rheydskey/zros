@@ -1,12 +1,75 @@
 const serial = @import("./drivers/serial.zig");
+const tss = @import("./tss.zig");
 
-var GDT: [5]GDTEntry = [_]GDTEntry{
-    GDTEntry{},
-    GDTEntry{ .access_byte = .{ .present = true, .executable = true, .read_write = true, .typebit = TypeBit.CODE_DATA }, .flags = .{ .granularity = true, .long = true } },
-    GDTEntry{ .access_byte = .{ .present = true, .read_write = true, .typebit = TypeBit.CODE_DATA }, .flags = .{ .granularity = true, .descriptor = 1 } },
-    GDTEntry{ .access_byte = .{ .present = true, .read_write = true, .typebit = TypeBit.CODE_DATA, .privilege = 3 }, .flags = .{ .granularity = true, .long = true } },
-    GDTEntry{ .access_byte = .{ .present = true, .executable = true, .read_write = true, .typebit = TypeBit.CODE_DATA, .privilege = 3 }, .flags = .{ .granularity = true, .descriptor = 1 } },
+extern fn load_gdt(gdt_descriptor: *const GDTPtr) void;
+extern fn load_tss() void;
+
+const TSS: tss.TaskSegment = .{
+    .rsp = .{
+        .rsp1 = 0,
+        .rsp2 = 0,
+        .rsp3 = 0,
+    },
+    .ist = .{
+        .ist0 = 0,
+        .ist1 = 0,
+        .ist2 = 0,
+        .ist3 = 0,
+        .ist4 = 0,
+        .ist5 = 0,
+        .ist6 = 0,
+    },
+    .iopb = .{
+        .reserved = 0,
+        .iopb = 0,
+    },
 };
+
+const TssEntry = packed struct(u128) {
+    length: u16,
+    base_low: u16,
+    base_mid_low: u8,
+    flags: u16,
+    base_mid_high: u8,
+    base_high: u32,
+    reserved: u32 = 0,
+
+    pub fn fromAddr(ptr: usize) TssEntry {
+        return .{
+            .length = @sizeOf(tss.TaskSegment),
+            .base_low = @intCast(ptr & 0xFFFF),
+            .base_mid_low = @intCast(ptr >> 16 & 0xff),
+            .flags = 0b1000_1001,
+            .base_mid_high = @intCast(ptr >> 24 & 0xff),
+            .base_high = @intCast(ptr >> 32),
+        };
+    }
+};
+
+const Gdt = extern struct {
+    entries: [5]GDTEntry align(1),
+    tss: TssEntry align(1) = undefined,
+};
+
+var GDT: Gdt = Gdt{ .entries = [_]GDTEntry{
+    GDTEntry{},
+    GDTEntry{
+        .access_byte = .{ .present = true, .executable = true, .read_write = true, .typebit = TypeBit.CODE_DATA },
+        .flags = .{ .granularity = true, .long = true },
+    },
+    GDTEntry{
+        .access_byte = .{ .present = true, .read_write = true, .typebit = TypeBit.CODE_DATA },
+        .flags = .{ .granularity = true, .descriptor = 1 },
+    },
+    GDTEntry{
+        .access_byte = .{ .present = true, .read_write = true, .typebit = TypeBit.CODE_DATA, .privilege = 3 },
+        .flags = .{ .granularity = true, .long = true },
+    },
+    GDTEntry{
+        .access_byte = .{ .present = true, .executable = true, .read_write = true, .typebit = TypeBit.CODE_DATA, .privilege = 3 },
+        .flags = .{ .granularity = true, .descriptor = 1 },
+    },
+} };
 
 const GDTPtr = packed struct {
     size: u16,
@@ -50,10 +113,13 @@ pub const GDTEntry = packed struct(u64) {
     base: u8 = 0x00,
 };
 
-extern fn load_gdt(gdt_descriptor: *const GDTPtr) void;
-
 pub fn init() void {
     serial.print("Start GDT Init\n", .{});
-    load_gdt(&GDTPtr{ .size = @sizeOf([5]GDTEntry) - 1, .address = @intFromPtr(&GDT) });
+
+    GDT.tss = TssEntry.fromAddr(@intFromPtr(&TSS));
+    load_gdt(&GDTPtr{ .size = @sizeOf(Gdt), .address = @intFromPtr(&GDT) });
+
+    load_tss();
+
     serial.print_ok("GDT", .{});
 }

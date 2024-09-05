@@ -1,5 +1,6 @@
 ; https://github.com/brutal-org/brutal/blob/main/sources/kernel/x86_64/syscall.s
 ; https://cyp.sh/blog/syscallsysret
+
 [BITS 64]
 
 %macro push_all 0
@@ -71,3 +72,12 @@ prepare_syscall_handler:
     mov rsp, [gs:0x8]
     swapgs
     o64 sysret
+
+global load_ring_3
+load_ring_3:
+    push 0x23
+    push rdi
+    push 0x202
+    push 0x1B
+    push rsi
+    iretq
