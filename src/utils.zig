@@ -8,6 +8,10 @@ pub inline fn align_down(addr: usize, alignment: usize) usize {
     return (addr) & ~(alignment - 1);
 }
 
+pub inline fn is_align(addr: usize, alignment: usize) bool {
+    return align_down(addr, alignment) == addr;
+}
+
 pub fn read_cr0() u64 {
     return asm volatile ("mov %%cr0, %[cr0]"
         : [cr0] "=r" (-> u64),

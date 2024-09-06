@@ -7,7 +7,7 @@ const utils = @import("../utils.zig");
 const mem = @import("mem.zig");
 
 const VMM_ADDR_MASK: u64 = 0x000ffffffffff000;
-const MAX_MEMORY: u64 = 0x100_000_000;
+const MAX_MEMORY: u64 = 0x1_000_000_000;
 
 const Section = struct {
     extern const text_start_addr: [*]u8;
@@ -37,6 +37,10 @@ pub const PmlEntryFlag = packed struct(u9) {
         return @bitCast(flags);
     }
 
+    pub fn from_u64(flags: u64) PmlEntryFlag {
+        return @bitCast(@as(u9, @truncate(flags)));
+    }
+
     pub fn to_int(self: *const PmlEntryFlag) u9 {
         return @bitCast(self.*);
     }
@@ -59,15 +63,28 @@ const PmlEntry = packed struct(u64) {
     physical: u52 = 0,
 
     pub fn new_with_addr(addr: u64) !@This() {
-        return .{ .physical = (try mem.PhysAddr.new(addr)).as_u52() };
+        if (!mem.utils.is_align(addr, pmm.PAGE_SIZE)) return error.AddrNotAligned;
+        return .{ .physical = @truncate(addr >> 12) };
+    }
+
+    pub fn set_flags(self: *PmlEntry, flags: PmlEntryFlag) void {
+        self.flags = flags;
     }
 
     pub fn as_u64(self: *const PmlEntry) u64 {
         return @bitCast(self.*);
     }
+
+    pub fn as_phys_addr(self: *align(1) const PmlEntry) !mem.PhysAddr {
+        return mem.PhysAddr.new(self.physical << 12);
+    }
 };
 
 const Pml = struct { entries: [512]PmlEntry = undefined };
+
+comptime {
+    @import("../utils.zig").checkSize(Pml, 4096);
+}
 
 pub fn init(memmap: *limine.MemoryMapResponse) !void {
     serial.println("VMM init", .{});
@@ -79,59 +96,48 @@ pub fn init(memmap: *limine.MemoryMapResponse) !void {
     kernel_pml4 = @alignCast(@ptrCast(mem.mmap_phys_to_virt_ptr(alloc_page)));
     @memset(@as(*[pmm.PAGE_SIZE]u8, @ptrCast(kernel_pml4)), 0);
 
-    serial.println("HEERREEE", .{});
-
     for (256..512) |i| {
-        _ = get_next_level(kernel_pml4.?, i) catch {
-            @panic("ouppps");
+        _ = get_next_level(kernel_pml4.?, i) catch |err| {
+            @import("std").debug.panic("ouppps: {}", .{err});
         };
     }
 
-    serial.println("HEERREEE", .{});
-
     try map_kernel();
 
-    serial.println("HEERREEE", .{});
-
-    //    debug(kernel_pml4.?);
-
-    var addr: u64 = pmm.PAGE_SIZE;
-
-    while (addr < MAX_MEMORY) : (addr += pmm.PAGE_SIZE) {
-        try alloc(kernel_pml4.?, addr, addr, PmlEntryFlag.PRESENT | PmlEntryFlag.READ_WRITE);
-        try alloc(kernel_pml4.?, mem.mmap_phys_to_virt(addr), addr, PmlEntryFlag.PRESENT | PmlEntryFlag.READ_WRITE | PmlEntryFlag.NOX);
+    var addr: u64 = 0;
+    // Map the first 4gb
+    while (addr < 0x100000000) : (addr += pmm.PAGE_SIZE) {
+        try map_page(kernel_pml4.?, addr, addr, PmlEntryFlag.PRESENT | PmlEntryFlag.READ_WRITE);
+        try map_page(kernel_pml4.?, mem.mmap_phys_to_virt(addr), addr, PmlEntryFlag.PRESENT | PmlEntryFlag.READ_WRITE | PmlEntryFlag.NOX);
     }
 
     for (0..memmap.entry_count) |i| {
         const entry = memmap.entries()[i];
-        const base = try (try mem.PhysAddr.new(entry.base)).align_down(pmm.PAGE_SIZE);
-        const top = try (try mem.PhysAddr.new(entry.base + entry.length)).align_up(pmm.PAGE_SIZE);
+        if (entry.kind == .kernel_and_modules) {
+            const phys = try mem.PhysAddr.new(entry.base);
 
-        if (top.addr <= MAX_MEMORY) {
+            try map_page(kernel_pml4.?, phys.to_kernel().addr, phys.addr, PmlEntryFlag.PRESENT | PmlEntryFlag.READ_WRITE);
+
             continue;
         }
 
-        var j: u64 = base.addr;
+        const base = try (try mem.PhysAddr.new(entry.base)).align_down(pmm.PAGE_SIZE);
+        const top = try (try mem.PhysAddr.new(entry.base + entry.length)).align_up(pmm.PAGE_SIZE);
 
-        while (j < top.addr) : (j += pmm.PAGE_SIZE) {
-            if (j < 0x10_000_000) {
-                continue;
+        // 4GiB = 0x100_000_000
+        // map only over 4GiB cause 0..4Gib is already mapped
+        if (base.addr >= 0x100_000_000) {
+            var j: u64 = base.addr;
+            while (j < top.addr) : (j += pmm.PAGE_SIZE) {
+                const phys = try mem.PhysAddr.new(j);
+                try map_page(kernel_pml4.?, phys.addr, phys.addr, PmlEntryFlag.PRESENT | PmlEntryFlag.READ_WRITE);
+                try map_page(kernel_pml4.?, phys.to_virt().addr, phys.addr, PmlEntryFlag.PRESENT | PmlEntryFlag.READ_WRITE | PmlEntryFlag.NOX);
             }
-
-            try alloc(kernel_pml4.?, j, j, PmlEntryFlag.PRESENT | PmlEntryFlag.READ_WRITE);
-            try alloc(kernel_pml4.?, mem.mmap_phys_to_virt(j), j, PmlEntryFlag.PRESENT | PmlEntryFlag.READ_WRITE | PmlEntryFlag.NOX);
         }
     }
 
-    //  debug(kernel_pml4.?);
     serial.println("Switch pagemap", .{});
-    //    switch_to_pagemap(mem.mmap_virt_to_phys(@intFromPtr(kernel_pml4.?)));
-}
-
-fn debug(pml: *Pml) void {
-    for (pml.entries, 0..) |entry, i| {
-        serial.println("At {} => {any}", .{ i, entry.entry });
-    }
+    switch_to_pagemap(mem.mmap_virt_to_phys(@intFromPtr(kernel_pml4.?)));
 }
 
 fn map_kernel() !void {
@@ -145,37 +151,25 @@ fn map_kernel() !void {
 }
 
 fn get_next_level(pml: *align(1) Pml, index: u64) !*align(1) Pml {
-    serial.println("Check for {}", .{index});
-
     const page: PmlEntry = pml.*.entries[index];
 
     if (page.flags.present) {
-        serial.println("Present", .{});
-        return @ptrFromInt((page.as_u64() & VMM_ADDR_MASK) + limine_rq.hhdm.response.?.offset);
-    }
+        const phys = try page.as_phys_addr();
 
-    serial.println("Not present", .{});
+        return @ptrFromInt(phys.to_virt().addr);
+    }
 
     const alloc_page = try pmm.alloc(1);
 
-    serial.println("get a page", .{});
-    var pml_entry =
+    const pml_entry =
         try PmlEntry.new_with_addr(@intFromPtr(alloc_page));
-
-    serial.println("new", .{});
-
-    pml_entry.flags.user = true;
-
-    serial.println("set flags", .{});
     @memset(@as(*[4096]u8, @ptrCast(mem.mmap_phys_to_virt_ptr(alloc_page))), 0);
-
-    serial.println("memsetted", .{});
     pml.entries[index] = pml_entry;
 
     return @ptrCast(mem.mmap_phys_to_virt_ptr(alloc_page));
 }
 
-pub fn alloc(pml: *Pml, virt: u64, phys: u64, flags: u64) !void {
+pub fn map_page(pml: *Pml, virt: u64, phys: u64, flags: u64) !void {
     const virt_addr = try mem.VirtAddr.new(virt);
 
     const pml4_index = virt_addr.get_pml4_index();
@@ -183,22 +177,41 @@ pub fn alloc(pml: *Pml, virt: u64, phys: u64, flags: u64) !void {
     const pml2_index = virt_addr.get_pml2_index();
     const pml1_index = virt_addr.get_pml1_index();
 
-    serial.println("H", .{});
+    const pml3 = try get_next_level(pml, pml4_index);
+    const pml2 = try get_next_level(pml3, pml3_index);
+    const pml1 = try get_next_level(pml2, pml2_index);
+
+    if (pml1.entries[pml1_index].flags.present) {
+        serial.println("{X} is already map to {X}", .{ virt, (try pml1.entries[pml1_index].as_phys_addr()).addr });
+        return error.AlreadyMap;
+    }
+
+    var entry = try PmlEntry.new_with_addr(phys);
+    entry.set_flags(PmlEntryFlag.from_u64(flags));
+
+    pml1.entries[pml1_index] = entry;
+}
+
+pub fn remap_page(pml: *Pml, virt: u64, phys: u64, flags: u64) !void {
+    const virt_addr = try mem.VirtAddr.new(virt);
+
+    const pml4_index = virt_addr.get_pml4_index();
+    const pml3_index = virt_addr.get_pml3_index();
+    const pml2_index = virt_addr.get_pml2_index();
+    const pml1_index = virt_addr.get_pml1_index();
 
     const pml3 = try get_next_level(pml, pml4_index);
     const pml2 = try get_next_level(pml3, pml3_index);
     const pml1 = try get_next_level(pml2, pml2_index);
 
-    serial.println("H", .{});
+    var entry = try PmlEntry.new_with_addr(phys);
+    entry.set_flags(PmlEntryFlag.from_u64(flags));
 
-    pml1.entries[pml1_index] = try PmlEntry.new_with_addr(phys);
-    pml1.entries[pml1_index] = @bitCast(@as(u64, @bitCast(pml1.entries[pml1_index])) | flags);
+    pml1.entries[pml1_index] = entry;
 }
 
 fn map_section_range(start_addr: u64, end_addr: u64, flags: u64) !void {
     var addr = utils.align_down(start_addr, pmm.PAGE_SIZE);
-
-    serial.println("oi oi", .{});
 
     while (addr < utils.align_up(end_addr, pmm.PAGE_SIZE)) : (addr += pmm.PAGE_SIZE) {
         const kaddr = limine_rq.kaddr_req.response.?;
@@ -206,11 +219,11 @@ fn map_section_range(start_addr: u64, end_addr: u64, flags: u64) !void {
 
         serial.println("oi oi: {X}", .{addr});
 
-        try alloc(kernel_pml4.?, addr, physical, flags);
+        try map_page(kernel_pml4.?, addr, physical, flags);
     }
 }
 
-fn free(pml: *Pml, virt: u64) !void {
+fn unmap_page(pml: *Pml, virt: u64) !void {
     const virt_addr = try mem.VirtAddr.new(virt);
 
     const pml4_index = virt_addr.get_pml4_index();
@@ -236,63 +249,4 @@ fn switch_to_pagemap(pagemap: u64) void {
     cr3.write_page_base(pagemap);
     serial.println("New CR3: {any}", .{cr3});
     cr3.apply();
-}
-
-fn inittest() !u64 {
-    var gpa = @import("std").heap.GeneralPurposeAllocator(.{}){};
-    const allocator = gpa.allocator();
-    const fakememorysize = pmm.PAGE_SIZE * 0x100;
-
-    const memory = try allocator.alloc(u8, fakememorysize);
-    @memset(memory, 0);
-    // defer allocator.free(memory);
-
-    var entry =
-        limine.MemoryMapEntry{
-        .base = 0,
-        .length = @intFromPtr(&memory),
-        .kind = .reserved,
-    };
-
-    var usable =
-        limine.MemoryMapEntry{
-        .base = @intFromPtr(&memory),
-        .length = @intFromPtr(&memory) + fakememorysize,
-        .kind = .usable,
-    };
-
-    var entries = [_]*limine.MemoryMapEntry{ &entry, &usable };
-    var mmap = limine.MemoryMapResponse{
-        .revision = 0,
-        .entry_count = 2,
-        .entries_ptr = &entries,
-    };
-
-    limine_rq.memory_map.response = &mmap;
-
-    var hhdm = limine.HhdmResponse{
-        .revision = 0,
-        .offset = 0,
-    };
-
-    limine_rq.hhdm.response = &hhdm;
-
-    var k = limine.KernelAddressResponse{ .physical_base = 0, .virtual_base = 0, .revision = 0 };
-
-    limine_rq.kaddr_req.response = &k;
-
-    try pmm.pmm_init(
-        &mmap,
-        &hhdm,
-    );
-
-    try init(&hhdm, &mmap);
-
-    return hhdm.offset;
-}
-
-test {
-    _ = try inittest();
-
-    try alloc(kernel_pml4.?, 0xfff_000_000, 0x7000, PmlEntryFlag.PRESENT | PmlEntryFlag.READ_WRITE | PmlEntryFlag.USER);
 }

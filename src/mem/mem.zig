@@ -1,5 +1,5 @@
 const limine_rq = @import("../limine_rq.zig");
-const utils = @import("../utils.zig");
+pub const utils = @import("../utils.zig");
 
 pub fn mmap_virt_to_phys(virt: usize) usize {
     return virt - limine_rq.hhdm.response.?.offset;
@@ -23,11 +23,15 @@ pub const VirtAddr = struct {
     addr: u64,
 
     pub fn new(addr: u64) !VirtAddr {
-        const virtaddr: VirtAddr = .{ .addr = @bitCast(@as(i64, @bitCast(addr << 16)) >> 16) };
+        const virtaddr: VirtAddr = new_truncate(addr);
 
         if (virtaddr.addr != addr) return error.BadVirtAddr;
 
         return virtaddr;
+    }
+
+    pub fn new_truncate(addr: u64) VirtAddr {
+        return .{ .addr = @bitCast(@as(i64, @bitCast(addr << 16)) >> 16) };
     }
 
     pub fn as_u48(self: *const VirtAddr) u48 {
@@ -64,6 +68,16 @@ pub const VirtAddr = struct {
     }
 };
 
+test "pml_index" {
+    const assert = @import("std").debug.assert;
+    const virt = VirtAddr.new_truncate(0xff7f80005000);
+
+    assert(virt.get_pml4_index() == 510);
+    assert(virt.get_pml3_index() == 510);
+    assert(virt.get_pml2_index() == 0);
+    assert(virt.get_pml1_index() == 5);
+}
+
 pub const PhysAddr = struct {
     addr: u64,
 
@@ -85,5 +99,25 @@ pub const PhysAddr = struct {
 
     pub fn align_down(self: *const PhysAddr, alignment: u64) !PhysAddr {
         return PhysAddr.new(utils.align_down(self.addr, alignment));
+    }
+
+    pub fn to_virt(self: *const PhysAddr) VirtAddr {
+        return self.try_to_virt() catch |err| {
+            @import("std").debug.panic("Cannot convert to virt. Addr: {} Error {}", .{ self.addr, err });
+        };
+    }
+
+    pub fn to_kernel(self: *const PhysAddr) VirtAddr {
+        return self.try_to_kernel() catch |err| {
+            @import("std").debug.panic("Cannot convert to kernel. Addr: {} Error {}", .{ self.addr, err });
+        };
+    }
+
+    pub fn try_to_virt(self: *const PhysAddr) !VirtAddr {
+        return VirtAddr.new(self.addr + limine_rq.hhdm.response.?.offset);
+    }
+
+    pub fn try_to_kernel(self: *const PhysAddr) !VirtAddr {
+        return VirtAddr.new(self.addr + limine_rq.kaddr_req.response.?.virtual_base);
     }
 };

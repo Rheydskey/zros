@@ -130,7 +130,7 @@ pub fn main() !noreturn {
 
     @import("./drivers/hpet.zig").hpet.?.sleep(1000);
 
-    try vmm.alloc(vmm.kernel_pml4.?, 0x1000, @intFromPtr(stack), vmm.PmlEntryFlag.USER | vmm.PmlEntryFlag.READ_WRITE | vmm.PmlEntryFlag.PRESENT);
+    try vmm.remap_page(vmm.kernel_pml4.?, 0x1000, @intFromPtr(stack), vmm.PmlEntryFlag.USER | vmm.PmlEntryFlag.READ_WRITE | vmm.PmlEntryFlag.PRESENT);
     syscall.load_ring_3_z(0x1000, @intFromPtr(&idiot));
 
     while (true) {
