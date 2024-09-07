@@ -38,14 +38,14 @@ pub const PmlEntryFlag = packed struct(u9) {
     }
 
     pub fn from_u64(flags: u64) PmlEntryFlag {
-        return @bitCast(@as(u9, @truncate(flags)));
+        return from(@truncate(flags));
     }
 
     pub fn to_int(self: *const PmlEntryFlag) u9 {
         return @bitCast(self.*);
     }
 
-    pub const PRESENT = (1 << 0);
+    pub const PRESENT = 1;
     pub const READ_WRITE = (1 << 1);
     pub const USER = (1 << 2);
     pub const PAGE_WRITE_THROUGH = (1 << 3);
@@ -130,7 +130,6 @@ pub fn init(memmap: *limine.MemoryMapResponse) !void {
             var j: u64 = base.addr;
             while (j < top.addr) : (j += pmm.PAGE_SIZE) {
                 const phys = try mem.PhysAddr.new(j);
-                try map_page(kernel_pml4.?, phys.addr, phys.addr, PmlEntryFlag.PRESENT | PmlEntryFlag.READ_WRITE);
                 try map_page(kernel_pml4.?, phys.to_virt().addr, phys.addr, PmlEntryFlag.PRESENT | PmlEntryFlag.READ_WRITE | PmlEntryFlag.NOX);
             }
         }
@@ -216,8 +215,6 @@ fn map_section_range(start_addr: u64, end_addr: u64, flags: u64) !void {
     while (addr < utils.align_up(end_addr, pmm.PAGE_SIZE)) : (addr += pmm.PAGE_SIZE) {
         const kaddr = limine_rq.kaddr_req.response.?;
         const physical: usize = addr - kaddr.virtual_base + kaddr.physical_base;
-
-        serial.println("oi oi: {X}", .{addr});
 
         try map_page(kernel_pml4.?, addr, physical, flags);
     }
