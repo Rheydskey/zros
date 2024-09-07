@@ -207,6 +207,12 @@ pub fn remap_page(pml: *Pml, virt: u64, phys: u64, flags: u64) !void {
     entry.set_flags(PmlEntryFlag.from_u64(flags));
 
     pml1.entries[pml1_index] = entry;
+
+    asm volatile ("invlpg (%[virt_addr])"
+        :
+        : [virt_addr] "r" (virt),
+        : "memory", "nostack"
+    );
 }
 
 fn map_section_range(start_addr: u64, end_addr: u64, flags: u64) !void {

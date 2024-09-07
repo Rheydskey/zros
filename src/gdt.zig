@@ -62,12 +62,12 @@ var GDT: Gdt = Gdt{ .entries = [_]GDTEntry{
         .flags = .{ .granularity = true, .descriptor = 1 },
     },
     GDTEntry{
-        .access_byte = .{ .present = true, .read_write = true, .typebit = TypeBit.CODE_DATA, .privilege = 3 },
+        .access_byte = .{ .present = true, .read_write = true, .executable = true, .typebit = TypeBit.CODE_DATA, .privilege = 3 },
         .flags = .{ .granularity = true, .long = true },
     },
     GDTEntry{
-        .access_byte = .{ .present = true, .executable = true, .read_write = true, .typebit = TypeBit.CODE_DATA, .privilege = 3 },
-        .flags = .{ .granularity = true, .descriptor = 1 },
+        .access_byte = .{ .present = true, .read_write = true, .typebit = TypeBit.CODE_DATA, .privilege = 3 },
+        .flags = .{ .granularity = true, .long = true },
     },
 } };
 

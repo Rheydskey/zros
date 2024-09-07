@@ -1,4 +1,6 @@
 [BITS 64]
 
-int 0
+a:
+mov r10, 0xCAFE
+jmp a
 

@@ -17,5 +17,8 @@ pub const TaskSegment = packed struct {
     },
     reserved3: u32 = 0,
     reserved4: u32 = 0,
-    iopb: packed struct(u32) { reserved: u16 = 0, iopb: u16 },
+    iopb: packed struct(u32) {
+        reserved: u16 = 0,
+        iopb: u16,
+    },
 };

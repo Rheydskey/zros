@@ -2,12 +2,13 @@ const utils = @import("utils.zig");
 const Msr = utils.Msr;
 
 pub extern fn load_ring_3(u64, u64) void;
+
 pub fn load_ring_3_z(stack: u64, code: u64) void {
     asm volatile (
-        \\ push 0x23 // user ss 
+        \\ push $0x23 // user ss 
         \\ push %[stack]
-        \\ push 0x202 // rflags
-        \\ push 0x1B // user cs
+        \\ push $0x202 // rflags
+        \\ push $0x1B // user cs
         \\ push %[code]
         \\ iretq
         :

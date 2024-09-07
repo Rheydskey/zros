@@ -108,6 +108,7 @@ pub fn main() !noreturn {
     fb.screen.?.println("ZROS - 0.0.1+" ++ build_options.git_version);
     fb.screen.?.println("Hewwo worwd");
     fb.screen.?.print(0xA0);
+
     const str = try kheap.?.alloc(256);
 
     const printed = try @import("std").fmt.bufPrint(str, "HHDM: 0x{x} KADDR: 0x{x}", .{ limine_rq.hhdm.response.?.offset, limine_rq.kaddr_req.response.?.virtual_base });
@@ -120,18 +121,14 @@ pub fn main() !noreturn {
     try smp.init();
     syscall.init();
 
-    var a: u64 = 0;
-
-    serial.println("Phys: {x}, Virt: {x}, Addr of a: {x}, Addr of a: {x}", .{ limine_rq.kaddr_req.response.?.physical_base, limine_rq.kaddr_req.response.?.virtual_base, @intFromPtr(&a) - limine_rq.kaddr_req.response.?.virtual_base, @import("mem/mem.zig").mmap_virt_to_phys(@intFromPtr(&a)) });
-
     const stack = try pmm.alloc(4096);
 
     serial.println("0x{X}", .{@intFromPtr(stack)});
 
     @import("./drivers/hpet.zig").hpet.?.sleep(1000);
 
-    try vmm.remap_page(vmm.kernel_pml4.?, 0x1000, @intFromPtr(stack), vmm.PmlEntryFlag.USER | vmm.PmlEntryFlag.READ_WRITE | vmm.PmlEntryFlag.PRESENT);
-    syscall.load_ring_3_z(0x1000, @intFromPtr(&idiot));
+    try vmm.remap_page(vmm.kernel_pml4.?, 0x50000000, @intFromPtr(stack), vmm.PmlEntryFlag.USER | vmm.PmlEntryFlag.READ_WRITE | vmm.PmlEntryFlag.PRESENT);
+    syscall.load_ring_3_z(0x50000000 + 4096, @intFromPtr(&idiot));
 
     while (true) {
         asm volatile ("hlt");
