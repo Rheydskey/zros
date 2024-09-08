@@ -26,7 +26,7 @@ pub const Range = struct {
     const Self = @This();
 
     /// Range like [start; start+end]
-    pub fn inclusive(base: usize, size: usize) Self {
+    pub fn new_inclusive(base: usize, size: usize) Self {
         return .{
             .start = base,
             .end = size,
@@ -35,7 +35,7 @@ pub const Range = struct {
     }
 
     /// Range like [start; start+end[
-    pub fn exclusive(base: usize, size: usize) Self {
+    pub fn new_exclusive(base: usize, size: usize) Self {
         return .{
             .start = base,
             .end = size,

@@ -121,6 +121,10 @@ pub fn main() !noreturn {
     try smp.init();
     syscall.init();
 
+    const code: [*]u8 = @ptrCast(try pmm.alloc(4096));
+
+    @import("std").mem.copyForwards(u8, code[0..4096], idiot[0..idiot.len]);
+
     const stack = try pmm.alloc(4096);
 
     serial.println("0x{X}", .{@intFromPtr(stack)});
@@ -128,7 +132,10 @@ pub fn main() !noreturn {
     @import("./drivers/hpet.zig").hpet.?.sleep(1000);
 
     try vmm.remap_page(vmm.kernel_pml4.?, 0x50000000, @intFromPtr(stack), vmm.PmlEntryFlag.USER | vmm.PmlEntryFlag.READ_WRITE | vmm.PmlEntryFlag.PRESENT);
-    syscall.load_ring_3_z(0x50000000 + 4096, @intFromPtr(&idiot));
+
+    try vmm.remap_page(vmm.kernel_pml4.?, 0x50005000, @intFromPtr(code), vmm.PmlEntryFlag.USER | vmm.PmlEntryFlag.READ_WRITE | vmm.PmlEntryFlag.PRESENT);
+
+    syscall.load_ring_3_z(0x50000000 + 4096, 0x50005000);
 
     while (true) {
         asm volatile ("hlt");
