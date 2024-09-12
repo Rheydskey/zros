@@ -13,7 +13,7 @@ pub var madt: ?*align(1) Madt = undefined;
 pub var xspt: ?*align(1) Xspt = undefined;
 pub var cpu_count: u32 = 0;
 
-pub const AcpiSDT = packed struct(u288) {
+pub const AcpiHeader = packed struct(u288) {
     signature: u32,
     length: u32,
     revision: u8,
@@ -26,11 +26,11 @@ pub const AcpiSDT = packed struct(u288) {
 };
 
 const Xspt = packed struct {
-    header: AcpiSDT,
+    header: AcpiHeader,
     stdAddr: void,
 
     pub inline fn length(self: *align(1) @This()) u64 {
-        return @divExact(self.header.length - @sizeOf(AcpiSDT), @sizeOf(u64));
+        return @divExact(self.header.length - @sizeOf(AcpiHeader), @sizeOf(u64));
     }
 
     pub fn get(self: *align(1) @This(), name: *const []const u8) !*Xspt {
@@ -53,11 +53,11 @@ const Xspt = packed struct {
 };
 
 const Rspt = packed struct(u288) {
-    header: AcpiSDT,
+    header: AcpiHeader,
     stdAddr: void,
 
     pub inline fn length(self: *align(1) @This()) u32 {
-        return @divExact(self.header.length - @sizeOf(AcpiSDT), @sizeOf(u32));
+        return @divExact(self.header.length - @sizeOf(AcpiHeader), @sizeOf(u32));
     }
 
     pub fn get(self: *align(1) @This(), name: *const []const u8) !*Rspt {
@@ -80,7 +80,7 @@ const Rspt = packed struct(u288) {
 };
 
 pub const Madt = packed struct {
-    header: AcpiSDT,
+    header: AcpiHeader,
     lapic_addr: u32,
     flags: u32,
     entries: void,
@@ -213,7 +213,7 @@ pub fn get_rspd() !*Rsdp {
 }
 
 pub const Mcfg = packed struct(u352) {
-    header: AcpiSDT,
+    header: AcpiHeader,
     reserved: u64,
     configuration: void,
 

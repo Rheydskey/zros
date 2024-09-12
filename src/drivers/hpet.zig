@@ -7,7 +7,7 @@ pub var hpet: ?Hpet = null;
 var clock: u64 = 0;
 
 const AcpiHpet = packed struct(u448) {
-    header: acpi.AcpiSDT,
+    header: acpi.AcpiHeader,
     rev_id: u8,
     info: u8,
     vendor_id: u16,
