@@ -64,7 +64,7 @@ const PmlEntry = packed struct(u64) {
         return .{ .physical = @truncate(addr >> 12) };
     }
 
-    pub fn set_flags(self: *PmlEntry, flags: PmlEntryFlag) void {
+    pub fn set_flags(self: *align(1) PmlEntry, flags: PmlEntryFlag) void {
         self.flags = flags;
     }
 
@@ -199,6 +199,11 @@ pub fn remap_page(pml: *Pml, virt: u64, phys: u64, flags: u64) !void {
     const pml3 = try get_next_level(pml, pml4_index);
     const pml2 = try get_next_level(pml3, pml3_index);
     const pml1 = try get_next_level(pml2, pml2_index);
+
+    pml.entries[pml4_index].set_flags(PmlEntryFlag.from_u64(flags));
+
+    pml3.entries[pml3_index].set_flags(PmlEntryFlag.from_u64(flags));
+    pml2.entries[pml2_index].set_flags(PmlEntryFlag.from_u64(flags));
 
     var entry = try PmlEntry.new_with_addr(phys);
     entry.set_flags(PmlEntryFlag.from_u64(flags));
