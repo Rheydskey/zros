@@ -30,13 +30,14 @@ const Xspt = packed struct {
     stdAddr: void,
 
     pub inline fn length(self: *align(1) @This()) u64 {
-        return @divExact(self.header.length - @sizeOf(AcpiHeader), @sizeOf(u64));
+        return (self.header.length - @sizeOf(AcpiHeader)) / @sizeOf(u64);
     }
 
-    pub fn get(self: *align(1) @This(), name: *const []const u8) !*Xspt {
-        const entries = @as([*]u64, @alignCast(@ptrCast(&self.stdAddr)))[0..self.length()];
+    pub fn get(self: *align(1) @This(), name: *const []const u8) !*align(1) Xspt {
+        const entries = @as([*]align(1) u64, @ptrCast(@alignCast(&self.stdAddr)))[0..self.length()];
         for (entries) |entry| {
-            const ptr: *Xspt = @ptrFromInt(entry + limine_rq.hhdm.response.?.offset);
+            const ptr: *align(1) Xspt = @ptrFromInt(entry + limine_rq.hhdm.response.?.offset);
+
             const signature_as_slice: [*]u8 = @ptrCast(&ptr.header.signature);
 
             if (std.mem.eql(u8, signature_as_slice[0..4], name.*)) {
