@@ -4,23 +4,22 @@ const tss = @import("./tss.zig");
 extern fn load_gdt(gdt_descriptor: *const GDTPtr) void;
 extern fn load_tss() void;
 
-const TSS: tss.TaskSegment = .{
+var TSS: tss.TaskSegment = .{
     .rsp = .{
+        .rsp0 = 0,
         .rsp1 = 0,
         .rsp2 = 0,
-        .rsp3 = 0,
     },
     .ist = .{
-        .ist0 = 0,
         .ist1 = 0,
         .ist2 = 0,
         .ist3 = 0,
         .ist4 = 0,
         .ist5 = 0,
         .ist6 = 0,
+        .ist7 = 0,
     },
     .iopb = .{
-        .reserved = 0,
         .iopb = 0,
     },
 };
@@ -67,7 +66,7 @@ var GDT: Gdt = Gdt{ .entries = [_]GDTEntry{
     },
     GDTEntry{
         .access_byte = .{ .present = true, .read_write = true, .typebit = TypeBit.CODE_DATA, .privilege = 3 },
-        .flags = .{ .granularity = true, .long = true },
+        .flags = .{ .granularity = true, .descriptor = 1 },
     },
 } };
 
@@ -112,6 +111,10 @@ pub const GDTEntry = packed struct(u64) {
     flags: Flags = .{},
     base: u8 = 0x00,
 };
+
+pub fn tss_init(kernel_stack: u64) void {
+    TSS.rsp.rsp0 = kernel_stack;
+}
 
 pub fn init() void {
     serial.print("Start GDT Init\n", .{});
