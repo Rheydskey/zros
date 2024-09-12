@@ -1,8 +1,6 @@
 const utils = @import("utils.zig");
 const Msr = utils.Msr;
 
-pub extern fn load_ring_3(u64, u64) void;
-
 pub fn load_ring_3_z(stack: u64, code: u64) noreturn {
     asm volatile (
         \\ push $0x23 // user ss 
@@ -33,7 +31,7 @@ pub fn init() void {
     Msr.write(Msr.Regs.SYSCALL_FLAGS, 0xFFFF_FFFE);
 }
 
-fn set_gs(addr: usize) void {
+pub fn set_gs(addr: usize) void {
     Msr.write(Msr.Regs.GS_BASE, addr);
     Msr.write(Msr.Regs.KERN_GS_BASE, addr);
 }

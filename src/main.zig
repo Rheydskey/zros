@@ -16,6 +16,7 @@ const smp = @import("./smp.zig");
 const syscall = @import("syscall.zig");
 const heap = @import("./mem/heap.zig");
 const idiot = @embedFile("./idiot");
+const context = @import("context.zig");
 
 var kheap: ?heap.Heap = null;
 
@@ -142,6 +143,10 @@ pub fn main() !noreturn {
     const try_read: [*]u8 = @ptrFromInt(0x50005000);
 
     serial.println("{any}", .{try_read[0..idiot.len]});
+
+    const ctx: context.Context = .{ .stack = 0x50000000 + 4096, .kernel_stack = @intFromPtr(kernel_stack.ptr) + 16000 };
+
+    syscall.set_gs(@intFromPtr(&ctx));
 
     syscall.load_ring_3_z(0x50000000 + 4096, 0x50005000);
 

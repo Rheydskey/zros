@@ -22,6 +22,6 @@ qemu-system-x86_64 -serial mon:stdio \
                    -M q35 \
                    -smp 4 \
                    -bios $file \
-                   # -s -S                   
-                   # -d cpu_reset,in_asm \
-
+                   # -d int,cpu_reset,in_asm \
+                   # -enable-kvm
+                   # -s -S

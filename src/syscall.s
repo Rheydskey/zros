@@ -51,10 +51,10 @@ prepare_syscall_handler:
     sti
 
     ; push information (gs, cs, rip, rflags, rip...)
-    push qword 0x1b         ; user data segment
+    push qword 0x23         ; user data segment
     push qword [gs:0x8]     ; saved stack
     push r11                ; saved rflags
-    push qword 0x23         ; user code segment
+    push qword 0x1B         ; user code segment
     push rcx                ; current RIP
 
     push_all                ; push every register
@@ -72,12 +72,3 @@ prepare_syscall_handler:
     mov rsp, [gs:0x8]
     swapgs
     o64 sysret
-
-global load_ring_3
-load_ring_3:
-    push 0x23
-    push rdi
-    push 0x202
-    push 0x1B
-    push rsi
-    iretq
