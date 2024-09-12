@@ -88,8 +88,8 @@ pub fn main() !noreturn {
     serial.println("HHDM: 0x{x} KADDR: 0x{x}", .{ limine_rq.hhdm.response.?.offset, limine_rq.kaddr_req.response.?.virtual_base });
     try vmm.init(limine_rq.memory_map.response.?);
 
-    const heap_base = try pmm.alloc(4096);
-    kheap = heap.init(@ptrCast(heap_base), 4096);
+    const heap_base = try pmm.alloc(0x10000);
+    kheap = heap.init(@ptrCast(heap_base), 0x10000);
 
     if (limine_rq.framebuffer.response) |response| {
         if (response.framebuffer_count > 0) {
@@ -100,6 +100,10 @@ pub fn main() !noreturn {
             fb.fb_ptr = fb.Framebuffer.init(@intFromPtr(framebuf.address), framebuf.height, framebuf.width, framebuf.pitch, framebuf.bpp, a);
         }
     }
+
+    const kernel_stack = try kheap.?.alloc(16000);
+
+    gdt.tss_init(@intFromPtr(kernel_stack.ptr) + 16000);
 
     try acpi.init();
 
@@ -129,11 +133,15 @@ pub fn main() !noreturn {
 
     serial.println("0x{X}", .{@intFromPtr(stack)});
 
-    @import("./drivers/hpet.zig").hpet.?.sleep(1000);
+    serial.println("0x{X}", .{@intFromPtr(code)});
 
     try vmm.remap_page(vmm.kernel_pml4.?, 0x50000000, @intFromPtr(stack), vmm.PmlEntryFlag.USER | vmm.PmlEntryFlag.READ_WRITE | vmm.PmlEntryFlag.PRESENT);
 
     try vmm.remap_page(vmm.kernel_pml4.?, 0x50005000, @intFromPtr(code), vmm.PmlEntryFlag.USER | vmm.PmlEntryFlag.READ_WRITE | vmm.PmlEntryFlag.PRESENT);
+
+    const try_read: [*]u8 = @ptrFromInt(0x50005000);
+
+    serial.println("{any}", .{try_read[0..idiot.len]});
 
     syscall.load_ring_3_z(0x50000000 + 4096, 0x50005000);
 
@@ -143,10 +151,10 @@ pub fn main() !noreturn {
 }
 
 export fn _start() noreturn {
-    asm volatile (
-        \\xor %%rbp, %%rbp
-        \\push %%rbp
-    );
+    // asm volatile (
+    //     \\xor %%rbp, %%rbp
+    //     \\push %%rbp
+    // );
 
     main() catch |i| {
         serial.println("{}", .{i});

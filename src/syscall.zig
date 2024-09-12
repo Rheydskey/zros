@@ -3,7 +3,7 @@ const Msr = utils.Msr;
 
 pub extern fn load_ring_3(u64, u64) void;
 
-pub fn load_ring_3_z(stack: u64, code: u64) void {
+pub fn load_ring_3_z(stack: u64, code: u64) noreturn {
     asm volatile (
         \\ push $0x23 // user ss 
         \\ push %[stack]
@@ -15,6 +15,8 @@ pub fn load_ring_3_z(stack: u64, code: u64) void {
         : [stack] "r" (stack),
           [code] "r" (code),
     );
+
+    unreachable;
 }
 
 extern fn prepare_syscall_handler() void;

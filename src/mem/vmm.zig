@@ -6,9 +6,6 @@ const pmm = @import("pmm.zig");
 const utils = @import("../utils.zig");
 const mem = @import("mem.zig");
 
-const VMM_ADDR_MASK: u64 = 0x000ffffffffff000;
-const MAX_MEMORY: u64 = 0x1_000_000_000;
-
 const Section = struct {
     extern const text_start_addr: [*]u8;
     extern const text_end_addr: u64;
@@ -107,8 +104,8 @@ pub fn init(memmap: *limine.MemoryMapResponse) !void {
     var addr: u64 = 0;
     // Map the first 4gb
     while (addr < 0x100000000) : (addr += pmm.PAGE_SIZE) {
-        try map_page(kernel_pml4.?, addr, addr, PmlEntryFlag.PRESENT | PmlEntryFlag.READ_WRITE);
-        try map_page(kernel_pml4.?, mem.mmap_phys_to_virt(addr), addr, PmlEntryFlag.PRESENT | PmlEntryFlag.READ_WRITE | PmlEntryFlag.NOX);
+        try map_page(kernel_pml4.?, addr, addr, PmlEntryFlag.PRESENT | PmlEntryFlag.READ_WRITE | PmlEntryFlag.USER);
+        try map_page(kernel_pml4.?, mem.mmap_phys_to_virt(addr), addr, PmlEntryFlag.PRESENT | PmlEntryFlag.READ_WRITE);
     }
 
     for (0..memmap.entry_count) |i| {
@@ -130,7 +127,7 @@ pub fn init(memmap: *limine.MemoryMapResponse) !void {
             var j: u64 = base.addr;
             while (j < top.addr) : (j += pmm.PAGE_SIZE) {
                 const phys = try mem.PhysAddr.new(j);
-                try map_page(kernel_pml4.?, phys.to_virt().addr, phys.addr, PmlEntryFlag.PRESENT | PmlEntryFlag.READ_WRITE | PmlEntryFlag.NOX);
+                try map_page(kernel_pml4.?, phys.to_virt().addr, phys.addr, PmlEntryFlag.PRESENT | PmlEntryFlag.READ_WRITE);
             }
         }
     }
@@ -206,12 +203,15 @@ pub fn remap_page(pml: *Pml, virt: u64, phys: u64, flags: u64) !void {
     var entry = try PmlEntry.new_with_addr(phys);
     entry.set_flags(PmlEntryFlag.from_u64(flags));
 
+    serial.println("{any}", .{entry});
+    serial.println("{X}", .{@as(u64, @bitCast(entry))});
+
     pml1.entries[pml1_index] = entry;
 
-    asm volatile ("invlpg (%[virt_addr])"
+    asm volatile ("invlpg (%[addr])"
         :
-        : [virt_addr] "r" (virt),
-        : "memory", "nostack"
+        : [addr] "r" (virt),
+        : "memory"
     );
 }
 
