@@ -24,6 +24,10 @@ pub fn print(comptime format: []const u8, args: anytype) void {
     }
 }
 
+pub fn println_nolock(comptime format: []const u8, args: anytype) void {
+    serial_writer.value.print(format ++ "\n", args) catch {};
+}
+
 pub fn println(comptime format: []const u8, args: anytype) void {
     print(format ++ "\n", args);
 }

@@ -16,13 +16,13 @@ const smp = @import("./smp.zig");
 const syscall = @import("syscall.zig");
 const heap = @import("./mem/heap.zig");
 const idiot = @embedFile("./idiot");
-const context = @import("context.zig");
+const context = @import("./sched/ctx.zig");
 
 var kheap: ?heap.Heap = null;
 
 pub inline fn get_rbp() usize {
     return asm volatile (
-        \\ mov %%rsp, %[value]
+        \\ mov %%rbp, %[value]
         : [value] "=r" (-> usize),
     );
 }
@@ -43,19 +43,19 @@ pub fn stacktrace() void {
 
     max += 1;
 
-    serial.println("Stacktrace:", .{});
+    serial.println_nolock("Stacktrace:", .{});
 
     var rbp: *align(1) Stacktrace = @ptrFromInt(get_rbp());
 
     var i: u32 = 0;
     while (@intFromPtr(rbp) != 0x0) : (i += 1) {
-        serial.println("{}: 0x{X}", .{ i, rbp.addr });
+        serial.println_nolock("{}: 0x{X}", .{ i, rbp.addr });
         rbp = rbp.next;
     }
 }
 
 pub fn panic(msg: []const u8, _: ?*builtin.StackTrace, _: ?usize) noreturn {
-    serial.println(
+    serial.println_nolock(
         \\====== This is a panic message ======
         \\{s}
     , .{msg});
@@ -132,17 +132,9 @@ pub fn main() !noreturn {
 
     const stack = try pmm.alloc(4096);
 
-    serial.println("0x{X}", .{@intFromPtr(stack)});
-
-    serial.println("0x{X}", .{@intFromPtr(code)});
-
     try vmm.remap_page(vmm.kernel_pml4.?, 0x50000000, @intFromPtr(stack), vmm.PmlEntryFlag.USER | vmm.PmlEntryFlag.READ_WRITE | vmm.PmlEntryFlag.PRESENT);
 
     try vmm.remap_page(vmm.kernel_pml4.?, 0x50005000, @intFromPtr(code), vmm.PmlEntryFlag.USER | vmm.PmlEntryFlag.READ_WRITE | vmm.PmlEntryFlag.PRESENT);
-
-    const try_read: [*]u8 = @ptrFromInt(0x50005000);
-
-    serial.println("{any}", .{try_read[0..idiot.len]});
 
     const ctx: context.Context = .{ .stack = 0x50000000 + 4096, .kernel_stack = @intFromPtr(kernel_stack.ptr) + 16000 };
 
@@ -156,14 +148,10 @@ pub fn main() !noreturn {
 }
 
 export fn _start() noreturn {
-    // asm volatile (
-    //     \\xor %%rbp, %%rbp
-    //     \\push %%rbp
-    // );
-
     main() catch |i| {
         serial.println("{}", .{i});
     };
+
     while (true) {
         asm volatile ("hlt");
     }

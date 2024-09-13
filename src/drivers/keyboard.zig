@@ -50,7 +50,6 @@ var ctrl = false;
 
 pub fn handle(scancode: u8) void {
     const event = event2enum(scancode);
-    serial.println("{}", .{event});
     var screen = &@import("./fbscreen.zig").screen.?;
 
     switch (event) {
