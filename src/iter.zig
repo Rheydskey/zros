@@ -53,5 +53,3 @@ pub const Range = struct {
         return self.end - self.start;
     }
 };
-
-const a = Range.exclusive(0, 2);

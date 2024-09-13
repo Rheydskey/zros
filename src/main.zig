@@ -8,15 +8,13 @@ const build_options = @import("build_options");
 const vmm = @import("./mem/vmm.zig");
 const fb = @import("./drivers/fbscreen.zig");
 const limine_rq = @import("limine_rq.zig");
-const acpi = @import("./acpi/acpi.zig");
-const ps2 = @import("./drivers/ps2.zig");
 const psf = @import("./psf.zig");
-const pci = @import("./drivers/pci.zig");
 const smp = @import("./smp.zig");
 const syscall = @import("syscall.zig");
 const heap = @import("./mem/heap.zig");
 const idiot = @embedFile("./idiot");
 const context = @import("./sched/ctx.zig");
+const drivers = @import("./drivers/drivers.zig");
 
 var kheap: ?heap.Heap = null;
 
@@ -106,9 +104,7 @@ pub fn main() !noreturn {
 
     gdt.tss_init(@intFromPtr(kernel_stack.ptr) + 16000);
 
-    try acpi.init();
-
-    try ps2.init();
+    try drivers.init();
 
     fb.screen.?.println("ZROS - 0.0.1+" ++ build_options.git_version);
     fb.screen.?.println("Hewwo worwd");
@@ -118,10 +114,6 @@ pub fn main() !noreturn {
 
     const printed = try @import("std").fmt.bufPrint(str, "HHDM: 0x{x} KADDR: 0x{x}", .{ limine_rq.hhdm.response.?.offset, limine_rq.kaddr_req.response.?.virtual_base });
     fb.screen.?.println(printed);
-
-    const mcfg: *align(1) acpi.Mcfg = @ptrCast(try acpi.xspt.?.get(&"MCFG"));
-
-    serial.println("{} {any}", .{ mcfg.nb_of_entry(), mcfg.get_configuration() });
 
     try smp.init();
     syscall.init();

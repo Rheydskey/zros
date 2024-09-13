@@ -144,7 +144,5 @@ pub export fn interrupt_handler(ctx: *Context) callconv(.C) u64 {
         _lapic.end_of_interrupt();
     }
 
-    serial.println_nolock("{x}", .{@intFromPtr(ctx)});
-
     return @intFromPtr(ctx);
 }
