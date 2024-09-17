@@ -18,6 +18,6 @@ Roadmap (FROM the devse meme generator):
 - [x] LAPIC
 - [x] HPET
 - [x] APIC-TIMER
-- [X] Userspace
+- [x] Userspace
 - [ ] SMP
 - [ ] The fun begin

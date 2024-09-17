@@ -5,12 +5,13 @@ const keyboard_handle = @import("../drivers/keyboard.zig").handle;
 const pic = @import("../drivers/pic.zig");
 const std = @import("std");
 const lapic = @import("../drivers/lapic.zig");
+const scheduler = @import("../sched/scheduler.zig");
 
 pub extern var interrupt_vector: [256]usize;
 
 pub var max: u8 = 0;
 
-pub const Regs = packed struct {
+pub const Regs = packed struct(u960) {
     r15: u64,
     r14: u64,
     r13: u64,
@@ -22,26 +23,39 @@ pub const Regs = packed struct {
     rdi: u64,
     rsi: u64,
     rbp: u64,
-    rsp: u64,
     rdx: u64,
     rcx: u64,
     rbx: u64,
     rax: u64,
 };
 
-pub const Iret = packed struct {
+pub const Iret = packed struct(u320) {
     rip: u64,
     cs: u64,
     flags: u64,
     rsp: u64,
     ss: u64,
+
+    pub inline fn debug(self: @This()) void {
+        serial.println_nolock(
+            \\ rip: {x}
+            \\ cs: {x}
+            \\ flags: {x}
+            \\ rsp: {x}
+            \\ ss: {x}
+        , .{ self.rip, self.cs, self.flags, self.rsp, self.ss });
+    }
 };
 
-pub const Context = packed struct {
+pub const Context = packed struct(u1408) {
     regs: Regs,
     interrupt_no: u64,
     error_code: u64,
     iret: Iret,
+
+    pub inline fn takeValueOf(self: *@This(), from: *const @This()) void {
+        self.* = from.*;
+    }
 };
 
 pub const Log = packed struct {
@@ -122,8 +136,15 @@ pub const Log = packed struct {
     }
 };
 
-pub fn irq_handler(interrupt: *const Context) void {
-    if (interrupt.interrupt_no == 33) {
+pub fn irq_handler(ctx: *Context) void {
+    if (ctx.interrupt_no == 32) {
+        scheduler.schedule(ctx) catch {
+            @panic("Cannot schedule");
+        };
+        return;
+    }
+
+    if (ctx.interrupt_no == 33) {
         const value = @import("../asm.zig").inb(0x60);
 
         keyboard_handle(value);

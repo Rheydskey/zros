@@ -9,9 +9,9 @@
     push rbx
     push rcx
     push rdx
+    push rbp
     push rsi
     push rdi
-    push rbp
     push r8
     push r9
     push r10
@@ -33,9 +33,9 @@
     pop r10
     pop r9
     pop r8
-    pop rbp
     pop rdi
     pop rsi
+    pop rbp
     pop rdx
     pop rcx
     pop rbx

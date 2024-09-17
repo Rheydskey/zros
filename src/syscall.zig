@@ -1,4 +1,6 @@
 const utils = @import("utils.zig");
+const Regs = @import("./idt/interrupt.zig").Regs;
+const serial = @import("./drivers/serial.zig");
 const Msr = utils.Msr;
 
 pub fn load_ring_3_z(stack: u64, code: u64) noreturn {
@@ -36,6 +38,11 @@ pub fn set_gs(addr: usize) void {
     Msr.write(Msr.Regs.KERN_GS_BASE, addr);
 }
 
-export fn syscall_handler() callconv(.C) void {
-    @import("./drivers/serial.zig").println("I'M IN SYSCALL !!", .{});
+export fn syscall_handler(registers: *Regs) callconv(.C) void {
+    if (registers.rax == 1) {
+        serial.println_nolock("BAKA !!", .{});
+        return;
+    }
+
+    serial.println_nolock("UWU !!", .{});
 }

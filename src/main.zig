@@ -12,9 +12,12 @@ const psf = @import("./psf.zig");
 const smp = @import("./smp.zig");
 const syscall = @import("syscall.zig");
 const heap = @import("./mem/heap.zig");
-const idiot = @embedFile("./idiot");
 const context = @import("./sched/ctx.zig");
+const scheduler = @import("./sched/scheduler.zig");
 const drivers = @import("./drivers/drivers.zig");
+
+const idiot = @embedFile("./idiot");
+const idiot2 = @embedFile("./idiot2");
 
 var kheap: ?heap.Heap = null;
 
@@ -128,11 +131,29 @@ pub fn main() !noreturn {
 
     try vmm.remap_page(vmm.kernel_pml4.?, 0x50005000, @intFromPtr(code), vmm.PmlEntryFlag.USER | vmm.PmlEntryFlag.READ_WRITE | vmm.PmlEntryFlag.PRESENT);
 
-    const ctx: context.Context = .{ .stack = 0x50000000 + 4096, .kernel_stack = @intFromPtr(kernel_stack.ptr) + 16000 };
+    var task = try scheduler.Task.create(&kheap.?);
 
-    syscall.set_gs(@intFromPtr(&ctx));
+    task.init(0x50005000, 0x50000000 + 4096, @intFromPtr(kernel_stack.ptr) + 16000, true);
 
-    syscall.load_ring_3_z(0x50000000 + 4096, 0x50005000);
+    try scheduler.add_process(task);
+
+    const code2: [*]u8 = @ptrCast(try pmm.alloc(4096));
+
+    @import("std").mem.copyForwards(u8, code2[0..4096], idiot2[0..idiot2.len]);
+
+    const stack2 = try pmm.alloc(4096);
+
+    try vmm.remap_page(vmm.kernel_pml4.?, 0x40000000, @intFromPtr(stack2), vmm.PmlEntryFlag.USER | vmm.PmlEntryFlag.READ_WRITE | vmm.PmlEntryFlag.PRESENT);
+
+    try vmm.remap_page(vmm.kernel_pml4.?, 0x40005000, @intFromPtr(code2), vmm.PmlEntryFlag.USER | vmm.PmlEntryFlag.READ_WRITE | vmm.PmlEntryFlag.PRESENT);
+
+    var task2 = try scheduler.Task.create(&kheap.?);
+
+    task2.init(0x40005000, 0x40000000 + 4096, @intFromPtr(kernel_stack.ptr) + 16000, true);
+
+    try scheduler.add_process(task2);
+
+    scheduler.is_running = true;
 
     while (true) {
         asm volatile ("hlt");

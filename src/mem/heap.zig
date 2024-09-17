@@ -7,7 +7,7 @@ hsize: ?usize = null,
 
 const AllocHeader = packed struct {
     size: usize,
-    // Put void here cause zig crash when try align(1) ptr of AllocHeader
+    // Put void here cause zig compiler crash when try align(1) ptr of AllocHeader
     prev_block: ?*void,
     next_block: ?*void,
     is_free: bool,
@@ -157,6 +157,10 @@ pub fn alloc(self: *align(1) Heap, size: usize) ![]u8 {
     header.is_free = false;
 
     return data[0..size];
+}
+
+pub fn create(self: *align(1) Heap, comptime T: type) !*T {
+    return @ptrCast(@alignCast(try self.alloc(@sizeOf(T))));
 }
 
 pub fn free(base: anytype) !void {

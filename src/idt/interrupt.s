@@ -4,7 +4,6 @@
         push rbx
         push rcx
         push rdx
-        push rsp
         push rbp
         push rsi
         push rdi
@@ -16,7 +15,7 @@
         push r13
         push r14
         push r15
-        
+               
 %endmacro
 
 %macro pop_all 0
@@ -31,7 +30,6 @@
         pop rdi
         pop rsi
         pop rbp
-        pop rsp
         pop rdx
         pop rcx
         pop rbx        
