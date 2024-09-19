@@ -1,5 +1,3 @@
-const std = @import("std");
-const limine = @import("limine");
 const psf2 = @import("../psf.zig");
 
 const Glyph = struct {

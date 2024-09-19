@@ -1,9 +1,5 @@
-const idt = @import("../idt.zig");
 const serial = @import("../drivers/serial.zig");
-const assembly = @import("../asm.zig");
 const keyboard_handle = @import("../drivers/keyboard.zig").handle;
-const pic = @import("../drivers/pic.zig");
-const std = @import("std");
 const lapic = @import("../drivers/lapic.zig");
 const scheduler = @import("../sched/scheduler.zig");
 

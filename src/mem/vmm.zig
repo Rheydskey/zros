@@ -1,4 +1,3 @@
-const assert = @import("std").debug.assert;
 const serial = @import("../drivers/serial.zig");
 const limine = @import("limine");
 const limine_rq = @import("../limine_rq.zig");

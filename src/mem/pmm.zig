@@ -1,15 +1,11 @@
-const iter = @import("../iter.zig");
 const ds = @import("../ds.zig");
 const utils = @import("../utils.zig");
 const serial = @import("../drivers/serial.zig");
 const limine = @import("limine");
 
-const Pmm = @This();
-
 pub const PAGE_SIZE = 0x1000; // 0x1000 = 4Kib
 
 var bitmap: ?ds.BitMapU8 = null;
-var last_usable_page: u64 = 0;
 var base: ?u64 = null;
 var usable_size: usize = 0;
 

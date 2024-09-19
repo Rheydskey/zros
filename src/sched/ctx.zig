@@ -1,5 +1,4 @@
 pub const RegsContext = @import("../idt/interrupt.zig").Context;
-const Heap = @import("../mem/heap.zig").Heap;
 
 pub const Status = enum { READY, RUNNING, DEAD, IN_SYSCALL };
 

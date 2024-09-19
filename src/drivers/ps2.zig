@@ -1,5 +1,4 @@
 const acpi = @import("../acpi/acpi.zig");
-const ioapic = @import("./ioapic.zig");
 const inb = @import("../asm.zig").inb;
 const outb = @import("../asm.zig").outb;
 

@@ -2,7 +2,6 @@ const serial = @import("./drivers/serial.zig");
 const gdt = @import("./gdt.zig");
 const idt = @import("./idt.zig");
 const builtin = @import("std").builtin;
-const limine = @import("limine");
 const pmm = @import("./mem/pmm.zig");
 const build_options = @import("build_options");
 const vmm = @import("./mem/vmm.zig");
@@ -12,7 +11,6 @@ const psf = @import("./psf.zig");
 const smp = @import("./smp.zig");
 const syscall = @import("syscall.zig");
 const heap = @import("./mem/heap.zig");
-const context = @import("./sched/ctx.zig");
 const scheduler = @import("./sched/scheduler.zig");
 const drivers = @import("./drivers/drivers.zig");
 

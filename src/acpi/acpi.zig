@@ -1,7 +1,6 @@
 const lapic = @import("../drivers/lapic.zig");
 const ioapic = @import("../drivers/ioapic.zig");
 const serial = @import("../drivers/serial.zig");
-const limine = @import("limine");
 const limine_rq = @import("../limine_rq.zig");
 const std = @import("std");
 const hpet = @import("../drivers/hpet.zig");

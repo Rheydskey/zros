@@ -1,7 +1,5 @@
 const acpi = @import("../acpi/acpi.zig");
-const serial = @import("../drivers/serial.zig");
 const limine = @import("../limine_rq.zig");
-const checkSize = @import("../utils.zig").checkSize;
 
 pub var hpet: ?Hpet = null;
 var clock: u64 = 0;

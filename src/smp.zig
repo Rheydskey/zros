@@ -1,7 +1,5 @@
 const println = @import("./drivers/serial.zig").println;
 const cpu = @import("./cpu.zig");
-const apic = @import("./acpi/acpi.zig");
-const lapic = @import("./drivers/lapic.zig");
 const limine_rq = @import("./limine_rq.zig");
 const limine = @import("limine");
 
