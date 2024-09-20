@@ -76,18 +76,18 @@ const PmlEntry = packed struct(u64) {
     }
 };
 
-const Pml = struct { entries: [512]PmlEntry = undefined };
+const Pml = struct {
+    entries: [512]PmlEntry = undefined,
 
-comptime {
-    @import("../utils.zig").checkSize(Pml, 4096);
-}
+    comptime {
+        @import("../utils.zig").checkSize(Pml, 4096);
+    }
+};
 
 pub fn init(memmap: *limine.MemoryMapResponse) !void {
     serial.println("VMM init", .{});
 
     const alloc_page = try pmm.alloc(pmm.PAGE_SIZE);
-
-    serial.println("===== aHJhahaha : {p}", .{alloc_page});
 
     kernel_pml4 = @alignCast(@ptrCast(mem.mmap_phys_to_virt_ptr(alloc_page)));
     @memset(@as(*[pmm.PAGE_SIZE]u8, @ptrCast(kernel_pml4)), 0);
@@ -254,6 +254,5 @@ fn switch_to_pagemap(pagemap: u64) void {
 
     var cr3: registers.Cr3 = .{};
     cr3.write_page_base(pagemap);
-    serial.println("New CR3: {any}", .{cr3});
     cr3.apply();
 }

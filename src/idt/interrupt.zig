@@ -154,7 +154,7 @@ pub export fn interrupt_handler(ctx: *Context) callconv(.C) u64 {
     } else if (ctx.interrupt_no <= 32 + 15) {
         irq_handler(ctx);
     } else {
-        serial.println_nolock("{}", .{ctx.interrupt_no});
+        serial.println_nolock("UNHANDLED INTERRUPT: {x}", .{ctx.interrupt_no});
     }
 
     if (lapic.lapic) |_lapic| {

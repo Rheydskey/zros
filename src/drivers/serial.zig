@@ -16,12 +16,12 @@ pub fn print_ok(comptime format: []const u8, args: anytype) void {
 pub fn print(comptime format: []const u8, args: anytype) void {
     if (@import("builtin").is_test) {
         @import("std").debug.print(format, args);
-    } else {
-        const writer = serial_writer.lock();
-        defer serial_writer.unlock();
-
-        writer.print(format, args) catch {};
+        return;
     }
+
+    const writer = serial_writer.lock();
+    defer serial_writer.unlock();
+    writer.print(format, args) catch {};
 }
 
 pub fn println_nolock(comptime format: []const u8, args: anytype) void {

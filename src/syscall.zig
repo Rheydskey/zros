@@ -3,7 +3,7 @@ const Regs = @import("./idt/interrupt.zig").Regs;
 const serial = @import("./drivers/serial.zig");
 const Msr = utils.Msr;
 
-pub fn load_ring_3_z(stack: u64, code: u64) noreturn {
+pub fn load_ring_3(stack: u64, code: u64) noreturn {
     asm volatile (
         \\ push $0x23 // user ss 
         \\ push %[stack]

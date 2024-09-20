@@ -75,6 +75,8 @@ pub fn handle(scancode: u8) void {
         KeyboardEvent.Enter => {
             screen.nextLine();
         },
-        else => {},
+        else => {
+            serial.println("Unsupported: {any} {x}", .{ event, scancode });
+        },
     }
 }

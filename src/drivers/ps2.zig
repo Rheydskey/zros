@@ -62,6 +62,6 @@ pub fn init() !void {
 
     var io_apic = (try acpi.madt.?.get_ioapic()).ioapic;
 
+    // Redirect keyboard
     io_apic.redirect(0, 33, 1);
-    @import("./serial.zig").println("DATA {b}", .{inb(PS2.Regs.DATA)});
 }

@@ -3,6 +3,8 @@ pub const serial = @import("../drivers/serial.zig");
 pub const Heap = @import("../mem/heap.zig").Heap;
 
 pub var is_running = false;
+pub var base: ?*Task = undefined;
+pub var current_process: ?*Task = null;
 
 pub const Task = struct {
     id: ?u16 = null,
@@ -23,9 +25,6 @@ pub const Task = struct {
     }
 };
 
-pub var base: ?*Task = undefined;
-pub var current_process: ?*Task = null;
-
 pub fn add_process(new_task: *Task) !void {
     if (base == null) {
         base = new_task;
@@ -35,15 +34,15 @@ pub fn add_process(new_task: *Task) !void {
     }
 
     var id: u16 = 1;
-    var btask = base;
+    var task = base;
 
-    while (btask.?.next_task != null) {
-        btask = btask.?.next_task;
+    while (task.?.next_task != null) {
+        task = task.?.next_task;
         id += 1;
     }
 
     new_task.id = id;
-    btask.?.next_task = new_task;
+    task.?.next_task = new_task;
 }
 
 pub fn current() ?*Task {
@@ -75,13 +74,10 @@ pub fn schedule(ctx: *context.RegsContext) !void {
         current_task.status = .READY;
     }
 
-    while (true) {
-        var next_task = next() orelse return error.NoProcess;
+    var next_task = next() orelse return error.NoProcess;
 
-        serial.println_nolock("new task {?}", .{next_task.id});
-        next_task.status = .RUNNING;
-        break;
-    }
+    serial.println_nolock("new task {?}", .{next_task.id});
+    next_task.status = .RUNNING;
 
     current().?.ctx.load_to(ctx);
 }

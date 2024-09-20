@@ -13,6 +13,7 @@ pub const IoApicRedirect = packed struct(u64) {
     interrupt_mask: bool = false,
     reserved: u39 = 0,
     destination: u8 = 0,
+
     const InterruptPinPolarity = enum(u1) {
         High = 0,
         Low = 1,
@@ -33,7 +34,6 @@ pub const IoApicRedirect = packed struct(u64) {
     };
 
     const IOAPIC_ACTIVE_HIGH_WHEN_LOW = (1 << 1);
-
     const IOAPIC_LEVEL_TRIGGER = (1 << 3);
 
     comptime {

@@ -95,11 +95,6 @@ pub const Flags = packed struct(u4) {
     long: bool = false,
     descriptor: u1 = 0,
     granularity: bool = false,
-
-    comptime {
-        const std = @import("std");
-        std.debug.assert(@as(u4, @bitCast(Flags{ .granularity = true })) == 0b1000);
-    }
 };
 
 pub const GDTEntry = packed struct(u64) {

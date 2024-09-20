@@ -58,7 +58,7 @@ pub fn init() !void {
     const hpet_acpi: *align(1) AcpiHpet = @ptrCast(try acpi.xspt.?.get(&"HPET"));
 
     if (hpet_acpi.address_space == 1) {
-        return error.UnsupportedSystemIo;
+        return error.UnsupportedSystemIO;
     }
 
     if (hpet_acpi.address == 0) {

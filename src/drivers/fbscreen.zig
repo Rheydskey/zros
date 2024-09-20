@@ -1,5 +1,7 @@
 const psf2 = @import("../psf.zig");
 
+pub var fb_ptr: ?Framebuffer = undefined;
+
 const Glyph = struct {
     character: u8,
     font: *align(1) const psf2.Psf2,
@@ -174,5 +176,3 @@ pub const Framebuffer = struct {
         }
     }
 };
-
-pub var fb_ptr: ?Framebuffer = undefined;

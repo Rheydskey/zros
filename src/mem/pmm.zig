@@ -28,17 +28,14 @@ pub fn pmm_init(mmap: *limine.MemoryMapResponse, hhdm: *limine.HhdmResponse) !vo
     var highest_addr: u64 = 0;
 
     for (mmap.entries()) |entry| {
-        switch (entry.kind) {
-            .usable => {
-                const end_addr = entry.base + entry.length;
+        if (entry.kind == .usable) {
+            const end_addr = entry.base + entry.length;
 
-                if (end_addr > highest_addr) {
-                    highest_addr = end_addr;
-                }
+            if (end_addr > highest_addr) {
+                highest_addr = end_addr;
+            }
 
-                usable_size += entry.length;
-            },
-            else => {},
+            usable_size += entry.length;
         }
 
         serial.println("MMAP - base: 0x{X}-0x{X} kind: {}", .{ entry.base, entry.base + entry.length, entry.kind });
@@ -106,6 +103,8 @@ pub fn free(ptr: *void, size: usize) !void {
 pub fn debug() void {
     bitmap.?.debug();
 }
+
+// ===== TEST =====
 
 fn inittest() !u64 {
     var gpa = @import("std").heap.GeneralPurposeAllocator(.{}){};

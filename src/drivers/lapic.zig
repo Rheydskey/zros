@@ -74,14 +74,11 @@ pub fn init_timer() void {
 
     hpet.hpet.?.sleep(10);
 
-    _lapic.write(Lapic.Regs.LVT_TIMER, Lapic.ApicTimer.MASKED);
-
     const tick_in_10ms = 0xFFFF_FFFF - _lapic.read(Lapic.Regs.TIMER_CURRCNT);
 
+    _lapic.write(Lapic.Regs.LVT_TIMER, Lapic.ApicTimer.MASKED);
     _lapic.write(Lapic.Regs.LVT_TIMER, Lapic.ApicTimer.LAPIC_TIMER_IRQ | Lapic.ApicTimer.LAPIC_TIMER_PERIODIC);
-
     _lapic.write(Lapic.Regs.TIMER_DIV, Lapic.ApicTimer.Divisor.APIC_TIMER_DIVIDE_BY_16);
-
     _lapic.write(Lapic.Regs.TIMER_INITCNT, tick_in_10ms / 10);
 }
 
@@ -91,5 +88,3 @@ pub fn send_ipi(lapic_id: u32, vec: u32) void {
     l.write(Lapic.Regs.ICR1, lapic_id);
     l.write(Lapic.Regs.ICR0, vec);
 }
-
-// pub fn startap(lapic_id: u32, vec: u32) void {}
