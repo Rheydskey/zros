@@ -13,6 +13,7 @@ const syscall = @import("syscall.zig");
 const heap = @import("./mem/heap.zig");
 const scheduler = @import("./sched/scheduler.zig");
 const drivers = @import("./drivers/drivers.zig");
+const pci = @import("./drivers/pci.zig");
 
 const idiot = @embedFile("./idiot");
 const idiot2 = @embedFile("./idiot2");
@@ -69,6 +70,42 @@ pub fn panic(msg: []const u8, _: ?*builtin.StackTrace, _: ?usize) noreturn {
     while (true) {}
 }
 
+fn load_tasks(kernel_stack: []u8) !void {
+    const code: [*]u8 = @ptrCast(try pmm.alloc(4096));
+
+    @import("std").mem.copyForwards(u8, code[0..4096], idiot[0..idiot.len]);
+
+    const stack = try pmm.alloc(4096);
+
+    try vmm.remap_page(vmm.kernel_pml4.?, 0x50000000, @intFromPtr(stack), vmm.PmlEntryFlag.USER | vmm.PmlEntryFlag.READ_WRITE | vmm.PmlEntryFlag.PRESENT);
+
+    try vmm.remap_page(vmm.kernel_pml4.?, 0x50005000, @intFromPtr(code), vmm.PmlEntryFlag.USER | vmm.PmlEntryFlag.READ_WRITE | vmm.PmlEntryFlag.PRESENT);
+
+    var task = try scheduler.Task.create(&kheap.?);
+
+    task.init(0x50005000, 0x50000000 + 4096, @intFromPtr(kernel_stack.ptr) + 16000, true);
+
+    try scheduler.add_process(task);
+
+    const code2: [*]u8 = @ptrCast(try pmm.alloc(4096));
+
+    @import("std").mem.copyForwards(u8, code2[0..4096], idiot2[0..idiot2.len]);
+
+    const stack2 = try pmm.alloc(4096);
+
+    try vmm.remap_page(vmm.kernel_pml4.?, 0x40000000, @intFromPtr(stack2), vmm.PmlEntryFlag.USER | vmm.PmlEntryFlag.READ_WRITE | vmm.PmlEntryFlag.PRESENT);
+
+    try vmm.remap_page(vmm.kernel_pml4.?, 0x40005000, @intFromPtr(code2), vmm.PmlEntryFlag.USER | vmm.PmlEntryFlag.READ_WRITE | vmm.PmlEntryFlag.PRESENT);
+
+    var task2 = try scheduler.Task.create(&kheap.?);
+
+    task2.init(0x40005000, 0x40000000 + 4096, @intFromPtr(kernel_stack.ptr) + 16000, true);
+
+    try scheduler.add_process(task2);
+
+    scheduler.is_running = true;
+}
+
 pub fn main() !noreturn {
     _ = serial.Serial.init() catch {
         asm volatile ("hlt");
@@ -119,39 +156,11 @@ pub fn main() !noreturn {
     try smp.init();
     syscall.init();
 
-    const code: [*]u8 = @ptrCast(try pmm.alloc(4096));
+    const acpi = @import("./acpi/acpi.zig");
 
-    @import("std").mem.copyForwards(u8, code[0..4096], idiot[0..idiot.len]);
+    pci.scan(acpi.mcfg.?.get_configuration());
 
-    const stack = try pmm.alloc(4096);
-
-    try vmm.remap_page(vmm.kernel_pml4.?, 0x50000000, @intFromPtr(stack), vmm.PmlEntryFlag.USER | vmm.PmlEntryFlag.READ_WRITE | vmm.PmlEntryFlag.PRESENT);
-
-    try vmm.remap_page(vmm.kernel_pml4.?, 0x50005000, @intFromPtr(code), vmm.PmlEntryFlag.USER | vmm.PmlEntryFlag.READ_WRITE | vmm.PmlEntryFlag.PRESENT);
-
-    var task = try scheduler.Task.create(&kheap.?);
-
-    task.init(0x50005000, 0x50000000 + 4096, @intFromPtr(kernel_stack.ptr) + 16000, true);
-
-    try scheduler.add_process(task);
-
-    const code2: [*]u8 = @ptrCast(try pmm.alloc(4096));
-
-    @import("std").mem.copyForwards(u8, code2[0..4096], idiot2[0..idiot2.len]);
-
-    const stack2 = try pmm.alloc(4096);
-
-    try vmm.remap_page(vmm.kernel_pml4.?, 0x40000000, @intFromPtr(stack2), vmm.PmlEntryFlag.USER | vmm.PmlEntryFlag.READ_WRITE | vmm.PmlEntryFlag.PRESENT);
-
-    try vmm.remap_page(vmm.kernel_pml4.?, 0x40005000, @intFromPtr(code2), vmm.PmlEntryFlag.USER | vmm.PmlEntryFlag.READ_WRITE | vmm.PmlEntryFlag.PRESENT);
-
-    var task2 = try scheduler.Task.create(&kheap.?);
-
-    task2.init(0x40005000, 0x40000000 + 4096, @intFromPtr(kernel_stack.ptr) + 16000, true);
-
-    try scheduler.add_process(task2);
-
-    scheduler.is_running = true;
+    // try load_tasks(kernel_stack);
 
     while (true) {
         asm volatile ("hlt");

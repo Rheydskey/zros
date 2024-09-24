@@ -6,10 +6,12 @@ const std = @import("std");
 const hpet = @import("../drivers/hpet.zig");
 const disable_pic = @import("../drivers/pic.zig").disable_pic;
 
-pub var rspt: ?*align(1) Rspt = undefined;
-pub var rsdp: ?*align(1) Rsdp = undefined;
-pub var madt: ?*align(1) Madt = undefined;
-pub var xspt: ?*align(1) Xspt = undefined;
+pub var rspt: ?*align(1) Rspt = null;
+pub var rsdp: ?*align(1) Rsdp = null;
+pub var madt: ?*align(1) Madt = null;
+pub var xspt: ?*align(1) Xspt = null;
+pub var mcfg: ?*align(1) Mcfg = null;
+
 pub var cpu_count: u32 = 0;
 
 pub const AcpiHeader = packed struct(u288) {
@@ -47,6 +49,10 @@ const Xspt = packed struct {
         return error.NotFound;
     }
 
+    pub fn get_mcfg(self: *align(1) @This()) !*align(1) Mcfg {
+        return @ptrCast(try self.get(&"MCFG"));
+    }
+
     pub fn get_apic(self: *align(1) @This()) !*align(1) Madt {
         return @ptrCast(try self.get(&"APIC"));
     }
@@ -76,6 +82,10 @@ const Rspt = packed struct(u288) {
 
     pub fn get_apic(self: *align(1) @This()) !*align(1) Madt {
         return @ptrCast(try self.get(&"APIC"));
+    }
+
+    pub fn get_mcfg(self: *align(1) @This()) !*align(1) Mcfg {
+        return @ptrCast(try self.get(&"MCFG"));
     }
 };
 
@@ -223,16 +233,72 @@ pub const Mcfg = packed struct(u352) {
         start: u8,
         end: u8,
         reserved: u32,
+
+        fn get_base_addr(self: @This(), addr: @import("../drivers/pci.zig").PciAddr) u64 {
+            return self.base + limine_rq.hhdm.response.?.offset + (@as(u64, addr.bus_no - self.start) << 20) | (@as(u64, addr.device_no) << 15) | @as(u64, addr.fn_no) << 12 | (@as(u64, addr.offset));
+        }
+
+        pub fn read(
+            self: @This(),
+            addr: @import("../drivers/pci.zig").PciAddr,
+            comptime size: type,
+        ) size {
+            const base = self.get_base_addr(addr);
+            switch (size) {
+                u8 => {
+                    return @as(*size, @ptrFromInt(base)).*;
+                },
+                u16 => {
+                    return @as(*size, @ptrFromInt(base)).*;
+                },
+                u32 => {
+                    return @as(*size, @ptrFromInt(base)).*;
+                },
+                else => {
+                    @compileError("Should use u8, u16 or u32 as type");
+                },
+            }
+        }
+
+        pub fn write(self: @This(), addr: @import("../drivers/pci.zig").PciAddr, comptime size: type, value: size) void {
+            const base = self.get_base_addr(addr);
+
+            switch (size) {
+                u8 => {
+                    @as(*size, @ptrFromInt(base)).* = value;
+                },
+                u16 => {
+                    @as(*size, @ptrFromInt(base)).* = value;
+                },
+                u32 => {
+                    @as(*size, @ptrFromInt(base)).* = value;
+                },
+                else => {
+                    @compileError("Should use u8, u16 or u32 as type");
+                },
+            }
+        }
     };
 
-    pub fn get_configuration(self: *align(1) @This()) ?Configuration {
-        const ptr: *align(1) Configuration = @ptrCast(&self.configuration);
-
-        return ptr.*;
+    pub fn get_configuration(self: *align(1) @This()) *align(1) Configuration {
+        return @ptrCast(&self.configuration);
     }
 
-    pub fn nb_of_entry(self: *align(1) @This()) usize {
-        return (self.header.length - @sizeOf(Mcfg)) / @sizeOf(Configuration);
+    pub fn countEntry(self: *align(1) @This()) usize {
+        return (self.header.length * 8 - @bitSizeOf(Mcfg)) / @bitSizeOf(Configuration);
+    }
+
+    pub fn get_entry_of_bus(self: *align(1) @This(), bus: u8) ?*align(1) Configuration {
+        const cfg: [*]align(1) Configuration = @ptrCast(&self.configuration);
+        var i: usize = 0;
+        while (i < self.countEntry()) : (i += 1) {
+            const entry = cfg[i];
+            if (entry.start <= bus and bus <= entry.end) {
+                return &cfg[i];
+            }
+        }
+
+        return null;
     }
 };
 
@@ -249,11 +315,13 @@ pub fn init() !void {
         serial.println("{any}", .{xspt});
 
         madt = try xspt.?.get_apic();
+        mcfg = try xspt.?.get_mcfg();
     } else {
         rspt = try rsdp.?.get_rsdt();
         serial.println("{any}", .{rspt});
 
         madt = try rspt.?.get_apic();
+        mcfg = try rspt.?.get_mcfg();
     }
 
     madt.?.read_entries();
