@@ -62,13 +62,13 @@ pub fn build(b: *std.Build) !void {
 
     std.fs.cwd().makePath("./zig-cache/nasm") catch {};
 
-    try nasm_to(b, .{ .path_file = "./src/gdt/gdt.s", .file_name = "gdt" }, exe);
+    try nasm_to(b, .{ .path_file = "./src/arch/x86/gdt/gdt.s", .file_name = "gdt" }, exe);
 
-    try nasm_to(b, .{ .path_file = "./src/idt/idt.s", .file_name = "idt" }, exe);
+    try nasm_to(b, .{ .path_file = "./src/arch/x86/idt/idt.s", .file_name = "idt" }, exe);
 
-    try nasm_to(b, .{ .path_file = "./src/idt/interrupt.s", .file_name = "interrupt" }, exe);
+    try nasm_to(b, .{ .path_file = "./src/arch/x86/idt/interrupt.s", .file_name = "interrupt" }, exe);
 
-    try nasm_to(b, .{ .path_file = "./src/syscall.s", .file_name = "syscall" }, exe);
+    try nasm_to(b, .{ .path_file = "./src/arch/x86/syscall.s", .file_name = "syscall" }, exe);
 
     b.installArtifact(exe);
 

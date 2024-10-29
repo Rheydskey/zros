@@ -1,5 +1,5 @@
-const println = @import("./drivers/serial.zig").println;
-const cpu = @import("./cpu.zig");
+const println = @import("root").drivers.serial.println;
+const cpu = @import("root").cpu;
 const limine_rq = @import("./limine_rq.zig");
 const limine = @import("limine");
 

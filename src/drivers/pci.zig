@@ -6,6 +6,23 @@ const serial = @import("serial.zig");
 const CONFIG_ADDR: u32 = 0xCF8;
 const CONFIG_DATA: u32 = 0xCFC;
 
+pub const HeaderType = packed struct(u8) {
+    header_type: u7,
+    multi_func: bool,
+
+    pub fn is_standard_header(self: @This()) bool {
+        return self.header_type == 0x0;
+    }
+
+    pub fn is_pci_to_pci_header(self: @This()) bool {
+        return self.header_type == 0x1;
+    }
+
+    pub fn is_cardbus_header(self: @This()) bool {
+        return self.header_type == 0x2;
+    }
+};
+
 pub const PciBar = struct {
     base: u64,
     length: u64,
@@ -184,8 +201,8 @@ pub const Pci = struct {
         return self.addr(0xa).read(u8);
     }
 
-    pub fn header_type(self: @This()) u8 {
-        return self.addr(0xe).read(u8);
+    pub fn header_type(self: @This()) HeaderType {
+        return @bitCast(self.addr(0xe).read(u8));
     }
 
     pub fn set_command(self: @This(), command_index: u4, value: bool) void {
@@ -256,7 +273,7 @@ pub const Pci = struct {
     }
 
     pub fn print(self: @This()) void {
-        serial.println("At slot {}, Vendor {X}:{X} Class: {any}:{x} HeaderType: {x}", .{ self.slot, self.vendor_id(), self.device_id(), Class.from(self.class()), self.subclass(), self.header_type() });
+        serial.println("At slot {}, Vendor {X}:{X} Class: {any}:{x} HeaderType: {any}", .{ self.slot, self.vendor_id(), self.device_id(), Class.from(self.class()), self.subclass(), self.header_type() });
     }
 };
 
@@ -281,18 +298,18 @@ pub fn scan(mcfg: *align(1) acpi.Mcfg.Configuration) void {
             vf.print();
         }
 
-        if (device.header_type() == 0x0) {
-            const class = Pci.Class.from(device.class());
-            if (class == .Multimedia and device.subclass() == 3) {
-                // device.set_master_flag();
-                // device.set_mmio_flag();
-                // @import("audio.zig").init(&device, function, slot) catch |err| {
-                //     serial.println("{any}", .{err});
-                // };
-            }
-
+        if (device.header_type().is_standard_header()) {
             for (0..6) |n| {
                 serial.println("BAR {} = {!}", .{ n, device.bar(@intCast(n)) });
+            }
+
+            const class = Pci.Class.from(device.class());
+            if (class == .Multimedia and device.subclass() == 3) {
+                device.set_master_flag();
+                device.set_mmio_flag();
+                @import("audio.zig").init(&device, function, slot) catch |err| {
+                    serial.println("{any}", .{err});
+                };
             }
         }
     }

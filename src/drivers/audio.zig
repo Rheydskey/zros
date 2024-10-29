@@ -74,7 +74,9 @@ pub fn init(device: *const pci.Pci, _: u16, _: u16) !void {
     hda_register.global_ctrl = hda_register.global_ctrl & ~@as(u32, (1 << 0));
     while ((hda_register.global_ctrl & (1 << 0)) != 0) {}
 
-    hda_register.global_ctrl = hda_register.global_ctrl & 1;
+    serial.println("Reset", .{});
+
+    hda_register.global_ctrl = hda_register.global_ctrl | 1;
     while ((hda_register.global_ctrl & (1 << 0)) == 0) {
         asm volatile ("pause");
     }

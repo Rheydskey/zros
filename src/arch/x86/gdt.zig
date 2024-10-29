@@ -1,4 +1,4 @@
-const serial = @import("./drivers/serial.zig");
+const serial = @import("root").drivers.serial;
 const tss = @import("./tss.zig");
 
 extern fn load_gdt(gdt_descriptor: *const GDTPtr) void;

@@ -1,4 +1,4 @@
-pub const RegsContext = @import("../idt/interrupt.zig").Context;
+pub const RegsContext = @import("../arch/x86/idt/interrupt.zig").Context;
 
 pub const Status = enum { READY, RUNNING, DEAD, IN_SYSCALL };
 
@@ -34,7 +34,7 @@ pub const Context = packed struct {
     }
 
     pub fn load_to(self: *const @This(), regs: *RegsContext) void {
-        @import("../syscall.zig").set_gs(@intFromPtr(self));
+        @import("root").syscall.set_gs(@intFromPtr(self));
 
         regs.* = self.regs;
     }

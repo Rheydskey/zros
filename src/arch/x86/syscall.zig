@@ -1,6 +1,6 @@
-const utils = @import("utils.zig");
-const Regs = @import("./idt/interrupt.zig").Regs;
-const serial = @import("./drivers/serial.zig");
+const utils = @import("root").utils;
+const Regs = @import("idt/interrupt.zig").Regs;
+const serial = @import("root").drivers.serial;
 const Msr = utils.Msr;
 
 pub fn load_ring_3(stack: u64, code: u64) noreturn {

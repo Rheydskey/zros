@@ -1,4 +1,4 @@
-const serial = @import("./drivers/serial.zig");
+const serial = @import("root").drivers.serial;
 const interrupt = @import("idt/interrupt.zig");
 
 const IDT_SIZE = 256;

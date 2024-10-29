@@ -1,7 +1,7 @@
-const serial = @import("../drivers/serial.zig");
-const keyboard_handle = @import("../drivers/keyboard.zig").handle;
-const lapic = @import("../drivers/lapic.zig");
-const scheduler = @import("../sched/scheduler.zig");
+const serial = @import("root").drivers.serial;
+const keyboard_handle = @import("root").drivers.keyboard.handle;
+const lapic = @import("root").drivers.lapic;
+const scheduler = @import("root").scheduler;
 
 pub extern var interrupt_vector: [256]usize;
 
@@ -141,7 +141,7 @@ pub fn irq_handler(ctx: *Context) void {
     }
 
     if (ctx.interrupt_no == 33) {
-        const value = @import("../asm.zig").inb(0x60);
+        const value = @import("root").assembly.inb(0x60);
 
         keyboard_handle(value);
         return;

@@ -1,19 +1,22 @@
-const serial = @import("./drivers/serial.zig");
-const gdt = @import("./gdt.zig");
-const idt = @import("./idt.zig");
+pub const drivers = @import("./drivers/drivers.zig");
+const pci = @import("./drivers/pci.zig");
+const serial = drivers.serial;
+pub const cpu = @import("arch/x86/cpu.zig");
+const gdt = @import("./arch/x86/gdt.zig");
+const idt = @import("./arch/x86/idt.zig");
+pub const syscall = @import("arch/x86/syscall.zig");
 const builtin = @import("std").builtin;
-const pmm = @import("./mem/pmm.zig");
 const build_options = @import("build_options");
+const pmm = @import("./mem/pmm.zig");
+const heap = @import("./mem/heap.zig");
 const vmm = @import("./mem/vmm.zig");
-const fb = @import("./drivers/fbscreen.zig");
+const fb = drivers.fb;
+pub const scheduler = @import("./sched/scheduler.zig");
 const limine_rq = @import("limine_rq.zig");
 const psf = @import("./psf.zig");
 const smp = @import("./smp.zig");
-const syscall = @import("syscall.zig");
-const heap = @import("./mem/heap.zig");
-const scheduler = @import("./sched/scheduler.zig");
-const drivers = @import("./drivers/drivers.zig");
-const pci = @import("./drivers/pci.zig");
+pub const assembly = @import("asm.zig");
+pub const utils = @import("utils.zig");
 
 const idiot = @embedFile("./idiot");
 const idiot2 = @embedFile("./idiot2");
@@ -112,7 +115,6 @@ pub fn main() !noreturn {
         return error.CannotWrite;
     };
 
-    const cpu = @import("./cpu.zig");
     serial.println("id: {}", .{cpu.get_id()});
 
     gdt.init();
