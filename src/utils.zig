@@ -53,8 +53,8 @@ pub const Msr = struct {
     }
 
     pub fn write(msr: u64, value: u64) void {
-        const low: u32 = @intCast(value);
-        const high: u32 = @intCast(value >> 32);
+        const low: u32 = @truncate(value);
+        const high: u32 = @truncate(value >> 32);
         asm volatile ("wrmsr"
             :
             : [_] "{rcx}" (msr),

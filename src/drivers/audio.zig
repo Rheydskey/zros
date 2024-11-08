@@ -65,9 +65,12 @@ const IntelHda = struct {
 };
 
 pub fn init(device: *const pci.Pci, _: u16, _: u16) !void {
-    serial.println("PTR: {X}", .{(try device.bar(0)).base + rq.hhdm.response.?.offset});
+    const bar = (try device.bar(0)) orelse {
+        return error.NoBar;
+    };
+    serial.println("PTR: {X}", .{bar.base + rq.hhdm.response.?.offset});
 
-    const hda_register: *HdaRegister = @ptrFromInt((try device.bar(0)).base + rq.hhdm.response.?.offset);
+    const hda_register: *HdaRegister = @ptrFromInt(bar.base + rq.hhdm.response.?.offset);
 
     serial.println("{any}", .{hda_register});
 

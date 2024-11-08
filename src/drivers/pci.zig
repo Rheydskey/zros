@@ -231,34 +231,43 @@ pub const Pci = struct {
     const IS_IO: u32 = 1;
     const BAR_TYPE_MASK: u32 = 0x6;
     const BAR_TYPE_64BIT: u32 = 0x4;
+    const BAR_PORT_MASK: u32 = 0xFFFF_FFFC;
+    const BAR_MMIO_ADDR_MASK: u32 = 0xFFFF_FFF0;
 
-    pub fn bar(self: @This(), n: u8) !PciBar {
-        if (n > 5) {
+    pub fn bar(self: @This(), n: u8) !?PciBar {
+        if (n >= 6) {
             return error.BarOverflow;
         }
 
-        var pcibar: PciBar = undefined;
-
         const offset: u8 = 0x10 + 4 * n;
-        const pci_addr = self.addr(offset);
 
+        var pcibar: PciBar = undefined;
+        const pci_addr = self.addr(offset);
         const bar_lower = pci_addr.read(u32);
+
         const is_io: bool = (bar_lower & IS_IO) == 1;
 
-        pci_addr.write(u32, ~@as(u32, 0));
-        const bar_size_low = pci_addr.read(u32);
-        pci_addr.write(u32, bar_lower);
-
         if (is_io) {
-            pcibar.mmio = false;
-            pcibar.base = bar_lower & 0xFFFF_FFFC;
-            pcibar.length = ~(bar_size_low & 0xFFFF_FFFC) + 1;
+            return .{
+                .base = bar_lower & BAR_PORT_MASK,
+                .mmio = false,
+                .length = 0,
+                .is_64bits = false,
+            };
+        }
 
-            return pcibar;
+        const address = bar_lower & BAR_MMIO_ADDR_MASK;
+
+        pci_addr.write(u32, BAR_MMIO_ADDR_MASK);
+        const bar_size_low = pci_addr.read(u32);
+        pci_addr.write(u32, address);
+
+        if (bar_size_low == 0) {
+            return null;
         }
 
         pcibar.mmio = true;
-        pcibar.base = bar_lower & 0xFFFF_FFF0;
+        pcibar.base = address;
         pcibar.length = ~(bar_size_low & 0xFFFF_FFF0) + 1;
         pcibar.is_64bits = (bar_lower & BAR_TYPE_MASK) == BAR_TYPE_64BIT;
 
@@ -300,7 +309,7 @@ pub fn scan(mcfg: *align(1) acpi.Mcfg.Configuration) void {
 
         if (device.header_type().is_standard_header()) {
             for (0..6) |n| {
-                serial.println("BAR {} = {!}", .{ n, device.bar(@intCast(n)) });
+                serial.println("BAR {} = {any}", .{ n, device.bar(@intCast(n)) });
             }
 
             const class = Pci.Class.from(device.class());
