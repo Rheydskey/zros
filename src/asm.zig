@@ -42,3 +42,7 @@ pub inline fn outl(port: u16, value: u32) void {
           [port] "N{edx}" (port),
     );
 }
+
+pub inline fn hlt() void {
+    asm volatile ("hlt");
+}

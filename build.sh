@@ -11,12 +11,15 @@ test $? -eq 0 || exit;
 
 bash ./meta/scripts/makeiso.sh
 
-if [ -f "/usr/share/edk2-ovmf/x64/OVMF_CODE.fd" ]
+
+file="meta/bin/ovmf-code-x86_64.fd"
+if [ ! -f "meta/bin/ovmf-code-x86_64.fd" ]
 then
-  file="/usr/share/edk2-ovmf/x64/OVMF_CODE.fd"
-else
-  file="/usr/share/edk2-ovmf/OVMF_CODE.fd"
+  wget "https://github.com/osdev0/edk2-ovmf-nightly/releases/latest/download/ovmf-code-x86_64.fd" -O "$file"
 fi
+
+
+
 
 export ARGS="-serial mon:stdio \
                    -drive format=raw,file=zros.hdd \

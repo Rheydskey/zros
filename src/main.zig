@@ -5,7 +5,8 @@ pub const cpu = @import("arch/x86/cpu.zig");
 const gdt = @import("./arch/x86/gdt.zig");
 const idt = @import("./arch/x86/idt.zig");
 pub const syscall = @import("arch/x86/syscall.zig");
-const builtin = @import("std").builtin;
+const std = @import("std");
+const builtin = std.builtin;
 const build_options = @import("build_options");
 const pmm = @import("./mem/pmm.zig");
 const heap = @import("./mem/heap.zig");
@@ -23,54 +24,36 @@ const idiot2 = @embedFile("./idiot2");
 
 var kheap: ?heap.Heap = null;
 
-pub inline fn get_rbp() usize {
-    return asm volatile (
-        \\ mov %%rbp, %[value]
-        : [value] "=r" (-> usize),
-    );
-}
-
-var max: u8 = 0;
-
-const Stacktrace = packed struct {
-    next: *Stacktrace,
-    addr: u64,
-};
-
-// Only works in debug mode (TODO: Make this working in release mode)
-pub fn stacktrace() void {
-    if (max > 3) {
-        while (true)
-            asm volatile ("hlt");
-    }
-
-    max += 1;
-
-    serial.println_nolock("Stacktrace:", .{});
-
-    var rbp: *align(1) Stacktrace = @ptrFromInt(get_rbp());
-
-    var i: u32 = 0;
-    while (@intFromPtr(rbp) != 0x0) : (i += 1) {
-        serial.println_nolock("{}: 0x{X}", .{ i, rbp.addr });
-        rbp = rbp.next;
-    }
-}
-
-pub fn panic(msg: []const u8, _: ?*builtin.StackTrace, _: ?usize) noreturn {
+pub fn panic(msg: []const u8, _: ?*builtin.StackTrace, ret_addr: ?usize) noreturn {
     serial.println_nolock(
         \\====== This is a panic message ======
         \\{s}
     , .{msg});
-    stacktrace();
 
-    var screen = &fb.screen.?;
+    if (fb.screen != null) {
+        var screen = &fb.screen.?;
 
-    screen.resetAll();
-    screen.println("===== PANIC =====");
-    screen.println(msg);
+        screen.resetAll();
+        screen.println("===== PANIC =====");
+        screen.println(msg);
+    }
 
-    while (true) {}
+    const addr = ret_addr orelse @returnAddress();
+
+    var si = std.debug.StackIterator.init(addr, null);
+    defer si.deinit();
+
+    serial.println_nolock("Stacktrace:", .{});
+
+    while (si.next()) |trace| {
+        serial.println_nolock("0x{X}", .{trace});
+    }
+
+    serial.println_nolock("End of stacktrace", .{});
+
+    while (true) {
+        assembly.hlt();
+    }
 }
 
 fn load_tasks(kernel_stack: []u8) !void {

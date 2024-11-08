@@ -51,10 +51,11 @@ pub fn build(b: *std.Build) !void {
         .target = target,
         .optimize = optimize,
         .code_model = std.builtin.CodeModel.kernel,
+        .linkage = .static,
     });
 
-    exe.linkage = .static;
     exe.pie = false;
+    exe.want_lto = false;
 
     exe.linker_script = b.path("linker.ld");
     exe.root_module.addImport("limine", limine.module("limine"));

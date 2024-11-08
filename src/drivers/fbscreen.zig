@@ -17,10 +17,10 @@ const Glyph = struct {
     }
 
     pub fn writeGlyph(self: *const @This(), x: usize, y: usize, fb: *const Framebuffer) void {
-        var iter = self.font.readGlyph(self.character);
+        var lines = self.font.readGlyph(self.character);
         var offset: u64 = y;
-        while (iter.iter()) |lines| {
-            var bit = lines;
+        while (lines.iter()) |line| {
+            var bit = line;
 
             for (0..10) |i| {
                 fb.writePixel(10 - i + x, offset, self.getColor((bit & 1) == 1));
