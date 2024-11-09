@@ -28,14 +28,14 @@ pub const AcpiHeader = packed struct(u288) {
 
 const Xspt = packed struct {
     header: AcpiHeader,
-    stdAddr: void,
+    end: void,
 
     pub inline fn length(self: *align(1) @This()) u64 {
         return (self.header.length - @sizeOf(AcpiHeader)) / @sizeOf(u64);
     }
 
     pub fn get(self: *align(1) @This(), name: *const []const u8) !*align(1) Xspt {
-        const entries = @as([*]align(1) u64, @ptrCast(@alignCast(&self.stdAddr)))[0..self.length()];
+        const entries = @as([*]align(1) u64, @ptrCast(@alignCast(&self.end)))[0..self.length()];
         for (entries) |entry| {
             const ptr: *align(1) Xspt = @ptrFromInt(entry + limine_rq.hhdm.response.?.offset);
 
@@ -60,14 +60,14 @@ const Xspt = packed struct {
 
 const Rspt = packed struct(u288) {
     header: AcpiHeader,
-    stdAddr: void,
+    end: void,
 
     pub inline fn length(self: *align(1) @This()) u32 {
         return @divExact(self.header.length - @sizeOf(AcpiHeader), @sizeOf(u32));
     }
 
     pub fn get(self: *align(1) @This(), name: *const []const u8) !*Rspt {
-        const entries = @as([*]u32, @alignCast(@ptrCast(&self.stdAddr)))[0..self.length()];
+        const entries = @as([*]u32, @alignCast(@ptrCast(&self.end)))[0..self.length()];
         for (entries) |entry| {
             const ptr: *Rspt = @ptrFromInt(entry + limine_rq.hhdm.response.?.offset);
             const signature_as_slice: [*]u8 = @ptrCast(&ptr.header.signature);
@@ -94,6 +94,31 @@ pub const Madt = packed struct {
     lapic_addr: u32,
     flags: u32,
     entries: void,
+
+    pub const MadtEntryHeader = packed struct {
+        entry_type: u8,
+        length: u8,
+        entry: void,
+    };
+
+    pub const Iso = packed struct {
+        header: Madt.MadtEntryHeader,
+        bus_src: u8,
+        irq_src: u8,
+        gsi: u32,
+        flags: u16,
+    };
+
+    pub const IoApic = packed struct {
+        header: Madt.MadtEntryHeader,
+        ioapic: ioapic.IoApic,
+    };
+
+    pub const ProcessorLocalApic = packed struct {
+        processor_id: u8,
+        apic_id: u8,
+        flags: packed struct(u32) { is_enabled: bool, is_online_capable: bool, other: u30 },
+    };
 
     pub fn read_entries(self: *align(1) @This()) void {
         var entry: ?*Madt.MadtEntryHeader = undefined;
@@ -130,7 +155,7 @@ pub const Madt = packed struct {
     }
 
     pub fn get_iso(self: *align(1) @This(), irq: u8) ?*align(1) Iso {
-        var entry: ?*Madt.MadtEntryHeader = undefined;
+        var entry: ?*Madt.MadtEntryHeader = null;
         var i: usize = 0;
         while (i < self.header.length - @sizeOf(@This())) {
             entry = @ptrFromInt(@intFromPtr(&self.entries) + i);
@@ -148,7 +173,7 @@ pub const Madt = packed struct {
     }
 
     pub fn get_ioapic(self: *align(1) @This()) !*align(1) IoApic {
-        var entry: ?*Madt.MadtEntryHeader = undefined;
+        var entry: ?*Madt.MadtEntryHeader = null;
         var i: usize = 0;
         while (i < self.header.length - @sizeOf(@This())) {
             entry = @ptrFromInt(@intFromPtr(&self.entries) + i);
@@ -162,31 +187,6 @@ pub const Madt = packed struct {
 
         return error.NotFound;
     }
-
-    pub const MadtEntryHeader = packed struct {
-        entry_type: u8,
-        length: u8,
-        entry: void,
-    };
-
-    pub const Iso = packed struct {
-        header: Madt.MadtEntryHeader,
-        bus_src: u8,
-        irq_src: u8,
-        gsi: u32,
-        flags: u16,
-    };
-
-    pub const IoApic = packed struct {
-        header: Madt.MadtEntryHeader,
-        ioapic: ioapic.IoApic,
-    };
-
-    pub const ProcessorLocalApic = packed struct {
-        processor_id: u8,
-        apic_id: u8,
-        flags: packed struct(u32) { is_enabled: bool, is_online_capable: bool, other: u30 },
-    };
 };
 
 const Rsdp = packed struct(u288) {
@@ -217,11 +217,6 @@ const Rsdp = packed struct(u288) {
     }
 };
 
-pub fn get_rspd() !*Rsdp {
-    const response = limine_rq.rspd.response orelse return error.NoRspd;
-    return @alignCast(@ptrCast(response.address));
-}
-
 pub const Mcfg = packed struct(u352) {
     header: AcpiHeader,
     reserved: u64,
@@ -245,13 +240,7 @@ pub const Mcfg = packed struct(u352) {
         ) size {
             const base = self.get_base_addr(addr);
             switch (size) {
-                u8 => {
-                    return @as(*size, @ptrFromInt(base)).*;
-                },
-                u16 => {
-                    return @as(*size, @ptrFromInt(base)).*;
-                },
-                u32 => {
+                u8, u16, u32 => {
                     return @as(*size, @ptrFromInt(base)).*;
                 },
                 else => {
@@ -264,13 +253,7 @@ pub const Mcfg = packed struct(u352) {
             const base = self.get_base_addr(addr);
 
             switch (size) {
-                u8 => {
-                    @as(*size, @ptrFromInt(base)).* = value;
-                },
-                u16 => {
-                    @as(*size, @ptrFromInt(base)).* = value;
-                },
-                u32 => {
+                u8, u16, u32 => {
                     @as(*size, @ptrFromInt(base)).* = value;
                 },
                 else => {

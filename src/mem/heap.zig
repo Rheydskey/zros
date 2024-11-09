@@ -28,7 +28,7 @@ const AllocHeader = packed struct {
         return @ptrCast(base);
     }
 
-    fn getHeaderFromDataBase(base: *void) *align(1) AllocHeader {
+    fn getHeaderFromData(base: *void) *align(1) AllocHeader {
         return @ptrFromInt(@intFromPtr(base) - @sizeOf(AllocHeader));
     }
 
@@ -165,12 +165,12 @@ pub fn create(self: *align(1) Heap, comptime T: type) !*T {
 
 pub fn free(base: anytype) !void {
     // From allocator code: https://ziglang.org/documentation/master/std/#std.mem.Allocator.destroy
-    const info = @typeInfo(@TypeOf(base)).Pointer;
+    const info = @typeInfo(@TypeOf(base)).pointer;
     const T = info.child;
     if (@sizeOf(T) == 0) return;
     const non_const_ptr = @as([*]u8, @ptrCast(@constCast(base)));
 
-    const header = AllocHeader.getHeaderFromDataBase(@ptrCast(non_const_ptr));
+    const header = AllocHeader.getHeaderFromData(@ptrCast(non_const_ptr));
 
     if (header.getPrev()) |prev| {
         if (prev.is_free) {
