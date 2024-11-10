@@ -225,14 +225,14 @@ pub const Mcfg = packed struct(u352) {
     configuration: void,
 
     pub const Configuration = packed struct(u128) {
-        base: u64,
+        base_addr: u64,
         pci_group: u16,
         start: u8,
         end: u8,
         reserved: u32,
 
         fn get_base_addr(self: @This(), addr: @import("../drivers/pci.zig").PciAddr) u64 {
-            return self.base + limine_rq.hhdm.response.?.offset + (@as(u64, addr.bus_no - self.start) << 20) | (@as(u64, addr.device_no) << 15) | @as(u64, addr.fn_no) << 12 | (@as(u64, addr.offset));
+            return limine_rq.hhdm.response.?.offset + self.base_addr + (@as(u64, addr.bus_no - self.start) << 20) | (@as(u64, addr.device_no) << 15) | @as(u64, addr.fn_no) << 12 | (@as(u64, addr.offset));
         }
 
         pub fn read(

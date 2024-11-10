@@ -207,9 +207,6 @@ pub fn remap_page(pml: *Pml, virt: u64, phys: u64, flags: u64) !void {
     var entry = try PmlEntry.new_with_addr(phys);
     entry.set_flags(PmlEntryFlag.from_u64(flags));
 
-    serial.println("{any}", .{entry});
-    serial.println("{X}", .{@as(u64, @bitCast(entry))});
-
     pml1.entries[pml1_index] = entry;
 
     asm volatile ("invlpg (%[addr])"

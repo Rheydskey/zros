@@ -3,26 +3,6 @@ const acpi = @import("../acpi/acpi.zig");
 const limine_rq = @import("../limine_rq.zig");
 const serial = @import("serial.zig");
 
-const CONFIG_ADDR: u32 = 0xCF8;
-const CONFIG_DATA: u32 = 0xCFC;
-
-pub const HeaderType = packed struct(u8) {
-    header_type: u7,
-    multi_func: bool,
-
-    pub fn is_standard_header(self: @This()) bool {
-        return self.header_type == 0x0;
-    }
-
-    pub fn is_pci_to_pci_header(self: @This()) bool {
-        return self.header_type == 0x1;
-    }
-
-    pub fn is_cardbus_header(self: @This()) bool {
-        return self.header_type == 0x2;
-    }
-};
-
 pub const PciBar = struct {
     base: u64,
     length: u64,
@@ -38,46 +18,10 @@ pub const PciAddr = packed struct(u32) {
     reserved: u7 = 0,
     is_enable: bool = true,
 
-    pub fn legacy_read(self: @This(), comptime size: type) size {
-        assembly.outl(CONFIG_ADDR, @bitCast(self));
-        switch (size) {
-            u8 => {
-                return assembly.inb(CONFIG_DATA);
-            },
-            u16 => {
-                return assembly.inw(CONFIG_DATA);
-            },
-            u32 => {
-                return assembly.inl(CONFIG_DATA);
-            },
-            else => {
-                @compileError("Should use u8, u16 or u32 as type");
-            },
-        }
-    }
-
-    pub fn legacy_write(self: @This(), comptime size: type, value: size) void {
-        assembly.outl(CONFIG_ADDR, @bitCast(self));
-        switch (size) {
-            u8 => {
-                return assembly.outb(CONFIG_DATA, value);
-            },
-            u16 => {
-                return assembly.outw(CONFIG_DATA, value);
-            },
-            u32 => {
-                return assembly.outl(CONFIG_DATA, value);
-            },
-            else => {
-                @compileError("Should use u8, u16 or u32 as type");
-            },
-        }
-    }
-
     pub fn read(self: @This(), comptime size: type) size {
         const mcfg = acpi.mcfg.?;
 
-        const entry = mcfg.get_entry_of_bus(self.bus_no) orelse @panic("PCI CANNOT READ");
+        const entry: *align(1) acpi.Mcfg.Configuration = mcfg.get_entry_of_bus(self.bus_no) orelse @panic("PCI CANNOT READ");
 
         return entry.read(self, size);
     }
@@ -92,7 +36,24 @@ pub const PciAddr = packed struct(u32) {
 
     pub fn get_addr(self: @This(), cfg: acpi.Mcfg.Configuration) u64 {
         const addr: u64 = (@as(u64, self.bus_no - cfg.start) << 20 | @as(u64, self.device_no) << 15 | @as(u64, self.fn_no) << 12);
-        return addr + limine_rq.hhdm.response.?.offset + cfg.base + self.offset;
+        return addr + limine_rq.hhdm.response.?.offset + cfg.base_addr + self.offset;
+    }
+};
+
+pub const HeaderType = packed struct(u8) {
+    header_type: u7,
+    multi_func: bool,
+
+    pub fn is_standard_header(self: @This()) bool {
+        return self.header_type == 0x0;
+    }
+
+    pub fn is_pci_to_pci_header(self: @This()) bool {
+        return self.header_type == 0x1;
+    }
+
+    pub fn is_cardbus_header(self: @This()) bool {
+        return self.header_type == 0x2;
     }
 };
 
@@ -162,6 +123,22 @@ pub const Pci = struct {
         const CONFIG_DATA = 0xCFC;
     };
 
+    /// https://wiki.osdev.org/PCI#Command_Register
+    const CommandRegister = packed struct(u16) {
+        io_space: bool,
+        memory_space: bool,
+        bus_master: bool,
+        special_cycles: bool,
+        memory_write_invalidate_enable: bool,
+        vga_palette_snoop: bool,
+        parity_error_response: bool,
+        _reserved0: bool,
+        serr_enable: bool,
+        fast_back_to_back_enable: bool,
+        interrupt_disable: bool,
+        _reserved1: u5,
+    };
+
     pub fn new(bus: u8, slot: u5, function: u3, mcfg: *align(1) const acpi.Mcfg.Configuration) Pci {
         return .{ .bus = bus, .slot = slot, .function = function, .mcfg = mcfg.* };
     }
@@ -185,8 +162,8 @@ pub const Pci = struct {
         return self.addr(0x2).read(u16);
     }
 
-    pub fn command(self: @This()) u16 {
-        return self.addr(0x4).read(u16);
+    pub fn command(self: @This()) CommandRegister {
+        return @bitCast(self.addr(0x4).read(u16));
     }
 
     pub fn status(self: @This()) u16 {
@@ -205,27 +182,23 @@ pub const Pci = struct {
         return @bitCast(self.addr(0xe).read(u8));
     }
 
-    pub fn set_command(self: @This(), command_index: u4, value: bool) void {
+    pub fn set_command(self: @This(), commandreg: CommandRegister) void {
         const paddr = self.addr(0x4);
-
-        var current = paddr.read(u16);
-        const value_u16: u16 = if (value) 1 else 0;
-
-        if (value) {
-            current |= (value_u16 << command_index);
-        } else {
-            current &= ~(value_u16 << command_index);
-        }
-
-        paddr.write(u16, current);
+        paddr.write(u16, @bitCast(commandreg));
     }
 
     pub fn set_master_flag(self: @This()) void {
-        self.set_command(0x2, true);
+        const command_reg = self.command();
+        serial.println("{b}", .{@as(u16, @bitCast(command_reg))});
+        command_reg.bus_master = true;
+        serial.println("{b}", .{@as(u16, @bitCast(command_reg))});
+        self.set_command(command_reg);
     }
 
     pub fn set_mmio_flag(self: @This()) void {
-        self.set_command(0x1, true);
+        const command_reg = self.command();
+        command_reg.memory_space = true;
+        self.set_command(command_reg);
     }
 
     const IS_IO: u32 = 1;
