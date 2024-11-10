@@ -24,6 +24,11 @@ pub const AcpiHeader = packed struct(u288) {
     oem_revision: u32,
     creator_id: u32,
     creator_revision: u32,
+
+    fn is_signature_eq(self: *align(1) @This(), name: []const u8) bool {
+        const signature_as_slice: [*]u8 = @ptrCast(&self.signature);
+        return std.mem.eql(u8, signature_as_slice[0..4], name);
+    }
 };
 
 const Xspt = packed struct {
@@ -34,14 +39,12 @@ const Xspt = packed struct {
         return (self.header.length - @sizeOf(AcpiHeader)) / @sizeOf(u64);
     }
 
-    pub fn get(self: *align(1) @This(), name: *const []const u8) !*align(1) Xspt {
+    pub fn get(self: *align(1) @This(), name: []const u8) !*align(1) Xspt {
         const entries = @as([*]align(1) u64, @ptrCast(@alignCast(&self.end)))[0..self.length()];
         for (entries) |entry| {
             const ptr: *align(1) Xspt = @ptrFromInt(entry + limine_rq.hhdm.response.?.offset);
 
-            const signature_as_slice: [*]u8 = @ptrCast(&ptr.header.signature);
-
-            if (std.mem.eql(u8, signature_as_slice[0..4], name.*)) {
+            if (ptr.header.is_signature_eq(name)) {
                 return ptr;
             }
         }
@@ -50,11 +53,11 @@ const Xspt = packed struct {
     }
 
     pub fn get_mcfg(self: *align(1) @This()) !*align(1) Mcfg {
-        return @ptrCast(try self.get(&"MCFG"));
+        return @ptrCast(try self.get("MCFG"));
     }
 
     pub fn get_apic(self: *align(1) @This()) !*align(1) Madt {
-        return @ptrCast(try self.get(&"APIC"));
+        return @ptrCast(try self.get("APIC"));
     }
 };
 
@@ -66,13 +69,12 @@ const Rspt = packed struct(u288) {
         return @divExact(self.header.length - @sizeOf(AcpiHeader), @sizeOf(u32));
     }
 
-    pub fn get(self: *align(1) @This(), name: *const []const u8) !*Rspt {
+    pub fn get(self: *align(1) @This(), name: []const u8) !*Rspt {
         const entries = @as([*]u32, @alignCast(@ptrCast(&self.end)))[0..self.length()];
         for (entries) |entry| {
             const ptr: *Rspt = @ptrFromInt(entry + limine_rq.hhdm.response.?.offset);
-            const signature_as_slice: [*]u8 = @ptrCast(&ptr.header.signature);
 
-            if (std.mem.eql(u8, signature_as_slice[0..4], name.*)) {
+            if (ptr.header.is_signature_eq(name)) {
                 return ptr;
             }
         }
@@ -81,11 +83,11 @@ const Rspt = packed struct(u288) {
     }
 
     pub fn get_apic(self: *align(1) @This()) !*align(1) Madt {
-        return @ptrCast(try self.get(&"APIC"));
+        return @ptrCast(try self.get("APIC"));
     }
 
     pub fn get_mcfg(self: *align(1) @This()) !*align(1) Mcfg {
-        return @ptrCast(try self.get(&"MCFG"));
+        return @ptrCast(try self.get("MCFG"));
     }
 };
 
