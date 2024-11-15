@@ -57,7 +57,7 @@ pub fn build(b: *std.Build) !void {
     exe.pie = false;
     exe.want_lto = false;
 
-    exe.linker_script = b.path("linker.ld");
+    exe.linker_script = b.path("meta/linker.ld");
     exe.root_module.addImport("limine", limine.module("limine"));
     exe.root_module.addOptions("build_options", build_options);
 

@@ -188,7 +188,7 @@ pub const Pci = struct {
     }
 
     pub fn set_master_flag(self: @This()) void {
-        const command_reg = self.command();
+        var command_reg = self.command();
         serial.println("{b}", .{@as(u16, @bitCast(command_reg))});
         command_reg.bus_master = true;
         serial.println("{b}", .{@as(u16, @bitCast(command_reg))});
@@ -196,7 +196,7 @@ pub const Pci = struct {
     }
 
     pub fn set_mmio_flag(self: @This()) void {
-        const command_reg = self.command();
+        var command_reg = self.command();
         command_reg.memory_space = true;
         self.set_command(command_reg);
     }
