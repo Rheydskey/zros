@@ -35,12 +35,6 @@ pub const IoApicRedirect = packed struct(u64) {
 
     const IOAPIC_ACTIVE_HIGH_WHEN_LOW = (1 << 1);
     const IOAPIC_LEVEL_TRIGGER = (1 << 3);
-
-    comptime {
-        if (!(@sizeOf(@This()) == @sizeOf(u64))) {
-            @compileError("Bad size for " ++ @typeName(@This()));
-        }
-    }
 };
 
 pub const IoApic = packed struct {

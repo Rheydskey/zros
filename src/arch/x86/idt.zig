@@ -22,7 +22,7 @@ const IdtPtr = packed struct(u80) {
 
 pub const IdtEntry = packed struct(u128) {
     offset_l: u16 = 0,
-    code_segment: u16 = 8,
+    code_segment: u16 = 8, // KERNEL_CODE_SEGMENT Should be refactor to delete the magic value
     ist: u8 = 0,
     type_attr: u8,
     offset_m: u16 = 0,
@@ -30,9 +30,9 @@ pub const IdtEntry = packed struct(u128) {
     zero: u32 = 0,
 
     pub fn set_offset(self: *@This(), base: u64) void {
-        self.*.offset_l = @truncate(base);
-        self.*.offset_m = @truncate(base >> 16);
-        self.*.offset_h = @truncate(base >> 32);
+        self.*.offset_l = @intCast(base & 0xFFFF);
+        self.*.offset_m = @intCast(base >> 16 & 0xFFFF);
+        self.*.offset_h = @intCast(base >> 32 & 0xFFFF);
     }
 
     pub const InterruptHandler = *const fn (interrupt: *const interrupt.Regs) callconv(.C) void;

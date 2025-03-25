@@ -17,10 +17,10 @@ pub const Cpuid = struct {
         }
     };
 
-    pub fn read_vendor() Vendor {
+    pub fn readVendor() Vendor {
         var self: Cpuid = .{};
 
-        self.read_cpuid(0);
+        self.readCpuId(0);
 
         return self.fromRegister(Vendor);
     }
@@ -45,15 +45,15 @@ pub const Cpuid = struct {
         other: u64,
     };
 
-    pub fn read_cpu_info() CpuInfo {
+    pub fn readCpuInfo() CpuInfo {
         var self: Cpuid = .{};
 
-        self.read_cpuid(1);
+        self.readCpuId(1);
 
         return self.fromRegister(CpuInfo);
     }
 
-    pub fn read_cpuid(self: *Cpuid, cpuid_value: u32) void {
+    pub fn readCpuId(self: *Cpuid, cpuid_value: u32) void {
         var eax_value: u32 = 0;
         var ebx_value: u32 = 0;
         var ecx_value: u32 = 0;
@@ -76,5 +76,5 @@ pub const Cpuid = struct {
 };
 
 pub fn get_id() u8 {
-    return Cpuid.read_cpu_info().ebx.local_apic_id;
+    return Cpuid.readCpuInfo().ebx.local_apic_id;
 }
