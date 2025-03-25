@@ -25,7 +25,6 @@ export ARGS="-serial mon:stdio \
                    -drive format=raw,file=zros.hdd \
                    -device ich9-intel-hda,id=sound0,bus=pcie.0,addr=0x1b -device hda-duplex,id=sound0-codec0,bus=sound0.0,cad=0 \
                    -global ICH9-LPC.disable_s3=1 -global ICH9-LPC.disable_s4=1 \
-                   -drive format=raw,file=test.hdd,if=none,id=test_hdd \
                    -no-reboot \
                    -no-shutdown \
                    -m 1024M \
