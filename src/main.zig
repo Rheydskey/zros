@@ -43,9 +43,20 @@ pub fn panic(msg: []const u8, _: ?*builtin.StackTrace, ret_addr: ?usize) noretur
     var si = std.debug.StackIterator.init(addr, null);
     defer si.deinit();
 
+    if (fb.screen != null) {
+        var screen = &fb.screen.?;
+
+        screen.println("Stacktrace:");
+    }
+
     serial.println_nolock("Stacktrace:", .{});
 
     while (si.next()) |trace| {
+        if (fb.screen) |_| {
+            var screen = &fb.screen.?;
+            _ = screen.writer().print("0x{X}\n", .{trace}) catch {};
+        }
+
         serial.println_nolock("0x{X}", .{trace});
     }
 
@@ -127,11 +138,11 @@ pub fn main() !noreturn {
 
     gdt.tss_init(@intFromPtr(kernel_stack.ptr) + 16000);
 
-    try drivers.init();
-
     fb.screen.?.println("ZROS - 0.0.1+" ++ build_options.git_version);
     fb.screen.?.println("Hewwo worwd");
     fb.screen.?.print(0xA0);
+
+    try drivers.init();
 
     const str = try kheap.?.alloc(256);
 
@@ -139,13 +150,13 @@ pub fn main() !noreturn {
     fb.screen.?.println(printed);
 
     // try smp.init();
-    // syscall.init();
+    syscall.init();
 
     // const acpi = @import("./acpi/acpi.zig");
 
     // pci.scan(acpi.mcfg.?.get_configuration());
 
-    // try load_tasks(kernel_stack);
+    try load_tasks(kernel_stack);
 
     while (true) {
         asm volatile ("hlt");

@@ -31,8 +31,8 @@ pub const IdtEntry = packed struct(u128) {
 
     pub fn set_offset(self: *@This(), base: u64) void {
         self.*.offset_l = @intCast(base & 0xFFFF);
-        self.*.offset_m = @intCast(base >> 16 & 0xFFFF);
-        self.*.offset_h = @intCast(base >> 32 & 0xFFFF);
+        self.*.offset_m = @intCast((base >> 16) & 0xFFFF);
+        self.*.offset_h = @intCast(base >> 32);
     }
 
     pub const InterruptHandler = *const fn (interrupt: *const interrupt.Regs) callconv(.C) void;

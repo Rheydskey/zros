@@ -47,7 +47,7 @@ pub const IoApic = packed struct {
     pub fn write(self: *align(1) @This(), reg: u32, value: u32) void {
         const base: u64 = self.ioapic_addr + limine_rq.hhdm.response.?.offset;
 
-        serial.println("Will write: {x}", .{base});
+        serial.println("Will write at {x}", .{base});
         @as(*volatile u32, @ptrFromInt(base)).* = reg;
         @as(*volatile u32, @ptrFromInt(base + 16)).* = value;
     }
@@ -71,8 +71,8 @@ pub const IoApic = packed struct {
         const struct_as_u64: u64 = @bitCast(acpi_redirect);
         serial.println("{}", .{redirect_table});
 
-        self.write(redirect_table, @truncate(struct_as_u64));
-        self.write(redirect_table + 1, @truncate(struct_as_u64 >> 32));
+        self.write(redirect_table, @intCast(struct_as_u64));
+        self.write(redirect_table + 1, @intCast(struct_as_u64 >> 32));
     }
 
     pub fn redirect(self: *align(1) @This(), lapic_id: u32, intno: u8, irq: u8) void {

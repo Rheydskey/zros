@@ -25,9 +25,9 @@ const TssEntry = packed struct(u128) {
         return .{
             .length = @sizeOf(tss.TaskSegment),
             .base_low = @intCast(ptr & 0xFFFF),
-            .base_mid_low = @intCast(ptr >> 16 & 0xff),
+            .base_mid_low = @intCast((ptr >> 16) & 0xff),
             .flags = TssFlags.PRESENT | TssFlags.LONGMODE,
-            .base_mid_high = @intCast(ptr >> 24 & 0xff),
+            .base_mid_high = @intCast((ptr >> 24) & 0xff),
             .base_high = @intCast(ptr >> 32),
         };
     }

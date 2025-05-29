@@ -1,6 +1,7 @@
 const psf2 = @import("../psf.zig");
+const std = @import("std");
 
-pub var fb_ptr: ?Framebuffer = undefined;
+pub var fb_ptr: ?Framebuffer = null;
 
 const Glyph = struct {
     character: u8,
@@ -90,6 +91,11 @@ pub const Screen = struct {
     }
 
     pub fn print(self: *@This(), to_write: u8) void {
+        if (to_write == '\n') {
+            self.nextLine();
+            return;
+        }
+
         if (fb_ptr) |fb| {
             fb.print(to_write, self.x, self.y);
             self.add(10);
@@ -101,6 +107,22 @@ pub const Screen = struct {
             self.print(c);
         }
         self.nextLine();
+    }
+
+    pub fn writeWithContext(self: *Screen, values: []const u8) WriteError!usize {
+        for (values) |value| {
+            self.print(value);
+        }
+
+        return values.len;
+    }
+
+    const WriteError = error{CannotWrite};
+
+    pub const ScreenWriter = std.io.Writer(*Screen, WriteError, writeWithContext);
+
+    pub fn writer(self: *@This()) ScreenWriter {
+        return .{ .context = self };
     }
 };
 

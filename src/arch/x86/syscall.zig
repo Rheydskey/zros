@@ -1,6 +1,7 @@
 const utils = @import("root").utils;
 const Regs = @import("idt/interrupt.zig").Regs;
 const serial = @import("root").drivers.serial;
+const screen = @import("../../drivers/fbscreen.zig").screen;
 const Msr = utils.Msr;
 
 extern fn prepare_syscall_handler() void;
@@ -41,6 +42,7 @@ pub fn set_gs(addr: usize) void {
 const SyscallId = enum(u8) {
     Baka = 0x0,
     Uwu = 0x1,
+    _,
 };
 
 export fn syscall_handler(registers: *Regs) callconv(.C) void {

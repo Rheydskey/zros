@@ -1,7 +1,7 @@
 #!/bin/env bash
 
-export DEBUG=1
-export KVM=0
+export DEBUG=0
+export KVM=1
 export GDB=0
 
 zig build $1
