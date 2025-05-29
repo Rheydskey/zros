@@ -1,9 +1,8 @@
 #!/bin/env bash
 
-export DEBUG=0
-export KVM=1
+export DEBUG=1
+export KVM=0
 export GDB=0
-
 
 zig build $1
 
@@ -17,9 +16,6 @@ if [ ! -f "meta/bin/ovmf-code-x86_64.fd" ]
 then
   wget "https://github.com/osdev0/edk2-ovmf-nightly/releases/latest/download/ovmf-code-x86_64.fd" -O "$file"
 fi
-
-
-
 
 export ARGS="-serial mon:stdio \
                    -drive format=raw,file=zros.hdd \

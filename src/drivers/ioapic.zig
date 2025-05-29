@@ -2,6 +2,7 @@ const serial = @import("./serial.zig");
 const limine_rq = @import("../limine_rq.zig");
 const acpi = @import("../acpi/acpi.zig");
 
+/// https://osdev.wiki/wiki/IOAPIC#IOREDTBL
 pub const IoApicRedirect = packed struct(u64) {
     int_vec: u8 = 0,
     delivery_mode: DeliveryMode = .Fixed,

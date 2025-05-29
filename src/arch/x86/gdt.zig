@@ -5,25 +5,7 @@ const zeroes = @import("std").mem.zeroes;
 extern fn load_gdt(gdt_descriptor: *const GDTPtr) void;
 extern fn load_tss() void;
 
-var TSS: tss.TaskSegment = .{
-    .rsp = .{
-        .rsp0 = 0,
-        .rsp1 = 0,
-        .rsp2 = 0,
-    },
-    .ist = .{
-        .ist1 = 0,
-        .ist2 = 0,
-        .ist3 = 0,
-        .ist4 = 0,
-        .ist5 = 0,
-        .ist6 = 0,
-        .ist7 = 0,
-    },
-    .iopb = .{
-        .iopb = 0,
-    },
-};
+var TSS: tss.TaskSegment = zeroes(tss.TaskSegment);
 
 const TssEntry = packed struct(u128) {
     length: u16,
@@ -128,10 +110,15 @@ const AccessByte = packed struct(u8) {
     present: bool = false,
 };
 
+// https://osdev.wiki/wiki/Global_Descriptor_Table#Segment_Descriptor
 pub const Flags = packed struct(u4) {
-    reversed: u1 = 0,
+    const Descriptor = struct {
+        const protected_16bit = 0;
+        const protected_32bit = 1;
+    };
+    reserved: u1 = 0,
     long: bool = false,
-    descriptor: u1 = 0,
+    descriptor: u1 = Descriptor.protected_16bit,
     granularity: bool = false,
 };
 

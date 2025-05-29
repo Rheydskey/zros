@@ -1,7 +1,9 @@
 .{
-    .name = "zros",
+    .name = .zros,
     .version = "0.0.1",
-    .paths = .{"./src"},
+    .fingerprint = 0x59da7434a2e90f5a,
+    .paths = .{ "./src", "build.zig", "build.zig.zon" },
+    .minimum_zig_version = "0.15.0-dev.337+4e700fdf8",
     .dependencies = .{
         .limine_zig = .{
             .url = "git+https://github.com/48cf/limine-zig.git#7b29b6e6f6d35052f01ed3831085a39aae131705",

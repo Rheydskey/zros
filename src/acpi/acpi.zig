@@ -1,6 +1,7 @@
 const lapic = @import("../drivers/lapic.zig");
 const ioapic = @import("../drivers/ioapic.zig");
 const serial = @import("../drivers/serial.zig");
+const pci = @import("../drivers/pci.zig");
 const limine_rq = @import("../limine_rq.zig");
 const std = @import("std");
 const hpet = @import("../drivers/hpet.zig");
@@ -231,13 +232,13 @@ pub const Mcfg = packed struct(u352) {
         end: u8,
         reserved: u32,
 
-        fn get_base_addr(self: @This(), addr: @import("../drivers/pci.zig").PciAddr) u64 {
+        fn get_base_addr(self: @This(), addr: pci.PciAddr) u64 {
             return limine_rq.hhdm.response.?.offset + self.base_addr + (@as(u64, addr.bus_no - self.start) << 20) | (@as(u64, addr.device_no) << 15) | @as(u64, addr.fn_no) << 12 | (@as(u64, addr.offset));
         }
 
         pub fn read(
             self: @This(),
-            addr: @import("../drivers/pci.zig").PciAddr,
+            addr: pci.PciAddr,
             comptime size: type,
         ) size {
             const base = self.get_base_addr(addr);
