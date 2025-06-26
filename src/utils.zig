@@ -24,8 +24,6 @@ pub fn write_cr0(value: usize) void {
 }
 
 pub const Msr = struct {
-    pub const EFER_ENABLE_SYSCALL = 1;
-
     pub const Regs = struct {
         pub const APIC = 0x1B;
         pub const EFER = 0xC000_0080;
@@ -36,6 +34,11 @@ pub const Msr = struct {
         pub const FS_BASE = 0xC000_0100;
         pub const GS_BASE = 0xC000_0101;
         pub const KERN_GS_BASE = 0xC000_0102;
+    };
+
+    pub const Efer = struct {
+        pub const SYSCALL = 0x1;
+        pub const LONGMODE = 0x100;
     };
 
     pub fn read(msr: u64) u64 {
@@ -53,8 +56,8 @@ pub const Msr = struct {
     }
 
     pub fn write(msr: u64, value: u64) void {
-        const low: u32 = @truncate(value);
-        const high: u32 = @truncate(value >> 32);
+        const low: u32 = @intCast(value & 0xFFFF_FFFF);
+        const high: u32 = @intCast(value >> 32);
         asm volatile ("wrmsr"
             :
             : [_] "{rcx}" (msr),
@@ -64,19 +67,7 @@ pub const Msr = struct {
     }
 };
 
-pub fn read_msr(msr: u64) u64 {
-    var low: u32 = 0;
-    var high: u32 = 0;
-
-    asm volatile ("rdmsr"
-        : [low] "=rax" (low),
-          [high] "=rdx" (high),
-        : [msr] "{rcx}" (msr),
-        : "=r"
-    );
-
-    return @as(u64, @intCast(high)) << 32 | low;
-}
+pub const read_msr = Msr.read;
 
 pub fn checkSize(cmp: type, expected_size: u64) void {
     comptime {

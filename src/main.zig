@@ -60,7 +60,7 @@ pub fn panic(msg: []const u8, _: ?*builtin.StackTrace, ret_addr: ?usize) noretur
         serial.println_nolock("0x{X}", .{trace});
     }
 
-    serial.println_nolock("End of stacktrace", .{});
+    serial.println_nolock("=====", .{});
 
     while (true) {
         assembly.hlt();
@@ -144,12 +144,12 @@ pub fn main() !noreturn {
 
     try drivers.init();
 
-    const str = try kheap.?.alloc(256);
-
-    const printed = try @import("std").fmt.bufPrint(str, "HHDM: 0x{x} KADDR: 0x{x}", .{ limine_rq.hhdm.response.?.offset, limine_rq.kaddr_req.response.?.virtual_base });
-    fb.screen.?.println(printed);
+    fb.screen.?.writer().print("HHDM: 0x{x} KADDR: 0x{x}", .{ limine_rq.hhdm.response.?.offset, limine_rq.kaddr_req.response.?.virtual_base }) catch {
+        @panic("Cannot write");
+    };
 
     // try smp.init();
+
     syscall.init();
 
     // const acpi = @import("./acpi/acpi.zig");

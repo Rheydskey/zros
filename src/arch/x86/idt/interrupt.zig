@@ -5,7 +5,8 @@ const scheduler = @import("root").scheduler;
 
 pub extern var interrupt_vector: [256]usize;
 
-pub var max: u8 = 0;
+pub const max_retry = 0;
+pub var retry: u8 = 0;
 
 pub const Regs = packed struct(u960) {
     r15: u64,
@@ -96,12 +97,12 @@ pub const Log = packed struct {
 
     pub fn log(ctx: *const Context) void {
         // Prevent loop
-        if (max > 3) {
+        if (retry > max_retry) {
             while (true)
                 asm volatile ("hlt");
         }
 
-        max += 1;
+        retry += 1;
 
         serial.println_nolock("===== GOT AN INTERRUPT =====", .{});
         // 0xE == PAGE_FAULT

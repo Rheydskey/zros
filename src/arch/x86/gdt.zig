@@ -39,7 +39,7 @@ const Gdt = extern struct {
 };
 
 var GDT: Gdt = Gdt{ .entries = [_]GDTEntry{
-    GDTEntry{},
+    zeroes(GDTEntry),
     GDTEntry{
         .access_byte = .{
             .present = true,

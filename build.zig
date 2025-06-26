@@ -28,10 +28,10 @@ pub fn build(b: *std.Build) !void {
 
     var cross =
         std.Target.Query{
-        .cpu_arch = std.Target.Cpu.Arch.x86_64,
-        .os_tag = .freestanding,
-        .abi = std.Target.Abi.none,
-    };
+            .cpu_arch = std.Target.Cpu.Arch.x86_64,
+            .os_tag = .freestanding,
+            .abi = std.Target.Abi.none,
+        };
 
     const x86features = std.Target.x86.Feature;
     cross.cpu_features_add.addFeature(@intFromEnum(x86features.soft_float));
@@ -52,6 +52,7 @@ pub fn build(b: *std.Build) !void {
         .optimize = optimize,
         .code_model = std.builtin.CodeModel.kernel,
         .linkage = .static,
+        .use_llvm = true,
     });
 
     exe.pie = false;

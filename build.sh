@@ -12,7 +12,7 @@ bash ./meta/scripts/makeiso.sh
 
 
 file="meta/bin/ovmf-code-x86_64.fd"
-if [ ! -f "meta/bin/ovmf-code-x86_64.fd" ]
+if [ ! -f $file ]
 then
   wget "https://github.com/osdev0/edk2-ovmf-nightly/releases/latest/download/ovmf-code-x86_64.fd" -O "$file"
 fi
@@ -25,6 +25,7 @@ export ARGS="-serial mon:stdio \
                    -no-shutdown \
                    -m 1024M \
                    -M q35 \
+                   -cpu host \
                    -smp 4 \
                    -bios $file"
 
