@@ -34,7 +34,7 @@ pub const Context = packed struct {
     }
 
     pub fn load_to(self: *const @This(), regs: *RegsContext) void {
-        @import("root").syscall.set_gs(@intFromPtr(self));
+        @import("root").syscall.setGs(@intFromPtr(self));
 
         regs.* = self.regs;
     }

@@ -62,8 +62,8 @@ prepare_syscall_handler:
     mov rdi, rsp            ; put the stackframe as the syscall argument
     mov rbp, 0
 
-    extern syscall_handler
-    call syscall_handler ; jump to beautiful higher level code
+    extern syscallHandler
+    call syscallHandler ; jump to beautiful higher level code
 
     pop_all ; pop every register except RAX as we use it for the return value
 

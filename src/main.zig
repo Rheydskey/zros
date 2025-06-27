@@ -22,7 +22,7 @@ pub const utils = @import("utils.zig");
 const idiot = @embedFile("./idiot");
 const idiot2 = @embedFile("./idiot2");
 
-var kheap: ?heap.Heap = null;
+pub var kheap: ?heap.Heap = null;
 
 pub fn panic(msg: []const u8, _: ?*builtin.StackTrace, ret_addr: ?usize) noreturn {
     serial.println_nolock(

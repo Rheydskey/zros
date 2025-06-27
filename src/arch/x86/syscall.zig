@@ -33,7 +33,7 @@ pub fn init() void {
     Msr.write(Msr.Regs.SYSCALL_FLAGS, 0xFFFF_FFFE);
 }
 
-pub fn set_gs(addr: usize) void {
+pub fn setGs(addr: usize) void {
     Msr.write(Msr.Regs.GS_BASE, addr);
     Msr.write(Msr.Regs.KERN_GS_BASE, addr);
 }
@@ -44,7 +44,7 @@ const SyscallId = enum(u8) {
     _,
 };
 
-export fn syscall_handler(registers: *Regs) callconv(.C) void {
+export fn syscallHandler(registers: *Regs) callconv(.C) void {
     const syscall_id: SyscallId = @enumFromInt(registers.rax);
     switch (syscall_id) {
         .Uwu => serial.println_nolock("UWU !!", .{}),
