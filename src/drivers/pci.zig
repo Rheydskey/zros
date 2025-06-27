@@ -2,12 +2,207 @@ const assembly = @import("../asm.zig");
 const acpi = @import("../acpi/acpi.zig");
 const limine_rq = @import("../limine_rq.zig");
 const serial = @import("serial.zig");
+const mmio = @import("../mem/mmio.zig");
 
-pub const PciBar = struct {
-    base: u64,
-    length: u64,
-    mmio: bool,
-    is_64bits: bool,
+pub const PciDevice = struct {
+    bus: u8,
+    device: u5,
+    function: u3,
+
+    device_id: u16,
+    vendor_id: u16,
+
+    header_type: u8,
+
+    class: u8,
+    subclass: u8,
+
+    // For later
+    bars: []PciBar,
+    mmios: []PciMmio,
+
+    pub fn from(bus: u8, device: u5, function: u3, device_id: u16, vendor_id: u16, header_type: u8, class: u8, subclass: u8) @This() {
+        return .{
+            .bus = bus,
+            .device = device,
+            .function = function,
+            .device_id = device_id,
+            .vendor_id = vendor_id,
+            .header_type = header_type,
+            .class = class,
+            .subclass = subclass,
+            .bars = &[0]PciBar{},
+            .mmios = &[0]PciMmio{},
+        };
+    }
+
+    pub fn fromPciAddr(addr: *const PciAddr) @This() {
+        const vendor_id = addr.read(u16);
+        const device_id = addr.addOffset(0x2).read(u16);
+        const header_type = addr.addOffset(0xe).read(u8);
+        const class = addr.addOffset(0xb).read(u8);
+        const subclass = addr.addOffset(0xa).read(u8);
+
+        return PciDevice.from(addr.bus_no, addr.device_no, addr.fn_no, device_id, vendor_id, header_type, class, subclass);
+    }
+
+    pub fn max_bar_count(self: *const PciDevice) u8 {
+        return switch (self.header_type) {
+            0x00 => 6,
+            0x01 => 2,
+            else => 0,
+        };
+    }
+
+    pub fn offset(self: *const @This(), of: u8) PciAddr {
+        return .{
+            .fn_no = self.function,
+            .device_no = self.device,
+            .bus_no = self.bus,
+            .offset = of,
+        };
+    }
+
+    /// https://wiki.osdev.org/PCI#Command_Register
+    const CommandRegister = packed struct(u16) {
+        io_space: bool,
+        memory_space: bool,
+        bus_master: bool,
+        special_cycles: bool,
+        memory_write_invalidate_enable: bool,
+        vga_palette_snoop: bool,
+        parity_error_response: bool,
+        _reserved0: bool,
+        serr_enable: bool,
+        fast_back_to_back_enable: bool,
+        interrupt_disable: bool,
+        _reserved1: u5,
+    };
+
+    pub fn command(self: @This()) CommandRegister {
+        return @bitCast(self.offset(0x4).read(u16));
+    }
+
+    pub fn status(self: @This()) u16 {
+        return self.offset(0x6).read(u16);
+    }
+
+    pub fn set_command(self: @This(), commandreg: CommandRegister) void {
+        self.offset(0x4).write(u16, @bitCast(commandreg));
+    }
+
+    pub fn set_master_flag(self: @This()) void {
+        var command_reg = self.command();
+
+        serial.println("{}", .{command_reg});
+        serial.println("{b}", .{@as(u16, @bitCast(command_reg))});
+        command_reg.bus_master = true;
+        self.set_command(command_reg);
+
+        serial.println("{b}", .{@as(u16, @bitCast(self.command()))});
+    }
+
+    pub fn set_mmio_flag(self: @This()) void {
+        var command_reg = self.command();
+        command_reg.memory_space = true;
+        self.set_command(command_reg);
+    }
+
+    pub fn bar(self: *const PciDevice, n: u8) ?PciBar {
+        if (n > self.max_bar_count()) {
+            return null;
+        }
+
+        return PciBar.fromBarAddr(&self.offset(0x10 + 4 * n));
+    }
+};
+
+pub const PciMmio = struct {
+    pcimmio: mmio.Mmio,
+};
+
+pub const PciBar = union(enum) {
+    Mmio64: struct {
+        base: u64,
+        length: u64,
+        prefetchable: bool,
+        mmio: mmio.Mmio,
+    },
+    Mmio32: struct {
+        base: u64,
+        length: u64,
+        prefetchable: bool,
+        mmio: mmio.Mmio,
+    },
+    Io: struct {
+        base: u64,
+        length: u64,
+    },
+
+    const IS_IO = 0x1;
+
+    fn getLength(addr: *const PciAddr) usize {
+        const previous = addr.*.read(u32);
+
+        addr.*.write(u32, ~@as(u32, 0));
+
+        const size = (~addr.*.read(u32)) + 1;
+
+        addr.*.write(u32, previous);
+
+        return size;
+    }
+
+    pub fn fromBarAddr(addr: *const PciAddr) PciBar {
+        const value = addr.*.read(u32);
+        const is_io = value & IS_IO == IS_IO;
+        const length = PciBar.getLength(addr);
+
+        if (is_io) {
+            return .{
+                .Io = .{
+                    .base = value & 0xfffffffc,
+                    .length = length,
+                },
+            };
+        }
+
+        const is_64bits = (value >> 1) & 0b11 == 0x2;
+
+        const base = switch (is_64bits) {
+            false => value & 0xfffffff0,
+            true => blk: {
+                var upper_addr = addr.*;
+                upper_addr.offset += 4;
+                const upper = upper_addr.read(u32);
+                break :blk (@as(u64, value) & 0xfffffff0) | @as(u64, upper) << 32;
+            },
+        };
+
+        const prefetchable = value & 0b1000 == 0b1000;
+
+        const pcimmio = mmio.Mmio.fromPhys(base, length / 4096);
+
+        if (is_64bits) {
+            return .{
+                .Mmio64 = .{
+                    .base = base,
+                    .length = length,
+                    .prefetchable = prefetchable,
+                    .mmio = pcimmio,
+                },
+            };
+        }
+
+        return .{
+            .Mmio32 = .{
+                .base = base,
+                .length = length,
+                .prefetchable = prefetchable,
+                .mmio = pcimmio,
+            },
+        };
+    }
 };
 
 pub const PciAddr = packed struct(u32) {
@@ -17,6 +212,17 @@ pub const PciAddr = packed struct(u32) {
     bus_no: u8,
     reserved: u7 = 0,
     is_enable: bool = true,
+
+    pub fn addOffset(self: @This(), offset: u8) @This() {
+        return .{
+            .fn_no = self.fn_no,
+            .offset = self.offset + offset,
+            .device_no = self.device_no,
+            .bus_no = self.bus_no,
+            .reserved = self.reserved,
+            .is_enable = self.is_enable,
+        };
+    }
 
     pub fn read(self: @This(), comptime size: type) size {
         const mcfg = acpi.mcfg.?;
@@ -118,178 +324,55 @@ pub const Pci = struct {
         }
     };
 
-    const Regs = struct {
-        const CONFIG_ADDRESS = 0xCF8;
-        const CONFIG_DATA = 0xCFC;
-    };
-
-    /// https://wiki.osdev.org/PCI#Command_Register
-    const CommandRegister = packed struct(u16) {
-        io_space: bool,
-        memory_space: bool,
-        bus_master: bool,
-        special_cycles: bool,
-        memory_write_invalidate_enable: bool,
-        vga_palette_snoop: bool,
-        parity_error_response: bool,
-        _reserved0: bool,
-        serr_enable: bool,
-        fast_back_to_back_enable: bool,
-        interrupt_disable: bool,
-        _reserved1: u5,
-    };
-
-    pub fn new(bus: u8, slot: u5, function: u3, mcfg: *align(1) const acpi.Mcfg.Configuration) Pci {
-        return .{ .bus = bus, .slot = slot, .function = function, .mcfg = mcfg.* };
-    }
-
-    pub fn addr(self: @This(), offset: u8) PciAddr {
-        const pci_addr: PciAddr = .{
-            .fn_no = self.function,
-            .device_no = self.slot,
-            .bus_no = self.bus,
-            .offset = offset,
-        };
-
-        return pci_addr;
-    }
-
-    pub fn vendor_id(self: @This()) u16 {
-        return self.addr(0x0).read(u16);
-    }
-
-    pub fn device_id(self: @This()) u16 {
-        return self.addr(0x2).read(u16);
-    }
-
-    pub fn command(self: @This()) CommandRegister {
-        return @bitCast(self.addr(0x4).read(u16));
-    }
-
-    pub fn status(self: @This()) u16 {
-        return self.addr(0x6).read(u16);
-    }
-
-    pub fn class(self: @This()) u8 {
-        return self.addr(0xb).read(u8);
-    }
-
-    pub fn subclass(self: @This()) u8 {
-        return self.addr(0xa).read(u8);
-    }
-
-    pub fn header_type(self: @This()) HeaderType {
-        return @bitCast(self.addr(0xe).read(u8));
-    }
-
-    pub fn set_command(self: @This(), commandreg: CommandRegister) void {
-        const paddr = self.addr(0x4);
-        paddr.write(u16, @bitCast(commandreg));
-    }
-
-    pub fn set_master_flag(self: @This()) void {
-        var command_reg = self.command();
-        serial.println("{b}", .{@as(u16, @bitCast(command_reg))});
-        command_reg.bus_master = true;
-        serial.println("{b}", .{@as(u16, @bitCast(command_reg))});
-        self.set_command(command_reg);
-    }
-
-    pub fn set_mmio_flag(self: @This()) void {
-        var command_reg = self.command();
-        command_reg.memory_space = true;
-        self.set_command(command_reg);
-    }
-
     const IS_IO: u32 = 1;
     const BAR_TYPE_MASK: u32 = 0x6;
     const BAR_TYPE_64BIT: u32 = 0x4;
     const BAR_PORT_MASK: u32 = 0xFFFF_FFFC;
     const BAR_MMIO_ADDR_MASK: u32 = 0xFFFF_FFF0;
-
-    pub fn bar(self: @This(), n: u8) !?PciBar {
-        if (n >= 6) {
-            return error.BarOverflow;
-        }
-
-        const offset: u8 = 0x10 + 4 * n;
-
-        var pcibar: PciBar = undefined;
-        const pci_addr = self.addr(offset);
-        const bar_lower = pci_addr.read(u32);
-
-        const is_io: bool = (bar_lower & IS_IO) == 1;
-
-        if (is_io) {
-            return .{
-                .base = bar_lower & BAR_PORT_MASK,
-                .mmio = false,
-                .length = 0,
-                .is_64bits = false,
-            };
-        }
-
-        const address = bar_lower & BAR_MMIO_ADDR_MASK;
-
-        pci_addr.write(u32, BAR_MMIO_ADDR_MASK);
-        const bar_size_low = pci_addr.read(u32);
-        pci_addr.write(u32, address);
-
-        if (bar_size_low == 0) {
-            return null;
-        }
-
-        pcibar.mmio = true;
-        pcibar.base = address;
-        pcibar.length = ~(bar_size_low & 0xFFFF_FFF0) + 1;
-        pcibar.is_64bits = (bar_lower & BAR_TYPE_MASK) == BAR_TYPE_64BIT;
-
-        if (pcibar.is_64bits) {
-            const pci_addr_upper = self.addr(offset + 4);
-
-            const bar_upper = @as(u64, pci_addr_upper.read(u32));
-            pcibar.base += (bar_upper << 32);
-        }
-
-        return pcibar;
-    }
-
-    pub fn print(self: @This()) void {
-        serial.println("At slot {}, Vendor {X}:{X} Class: {any}:{x} HeaderType: {any}", .{ self.slot, self.vendor_id(), self.device_id(), Class.from(self.class()), self.subclass(), self.header_type() });
-    }
 };
 
-pub fn scan(mcfg: *align(1) acpi.Mcfg.Configuration) void {
+pub fn scan() void {
     for (0..32) |slot_usize| {
         const slot: u5 = @intCast(slot_usize);
-        const device = Pci.new(0, slot, 0, mcfg);
+        const addr: PciAddr = .{
+            .bus_no = 0,
+            .device_no = slot,
+            .fn_no = 0,
+            .offset = 0x0,
+        };
 
-        if (device.vendor_id() == 0xFFFF) {
+        const device = PciDevice.fromPciAddr(&addr);
+
+        if (device.vendor_id == 0xFFFF) {
             continue;
         }
 
-        device.print();
-        var function: u3 = 1;
-        while (function < 7) : (function += 1) {
-            const vf = Pci.new(0, slot, function, mcfg);
+        serial.println("{}", .{device});
+        // var function: u3 = 1;
+        // while (function < 7) : (function += 1) {
+        //     const vf = PciDevice.fromPciAddr(&.{
+        //         .bus_no = 0,
+        //         .device_no = slot,
+        //         .fn_no = function,
+        //         .offset = 0,
+        //     });
 
-            if (vf.vendor_id() == 0xFFFF) {
-                continue;
-            }
+        //     if (vf.vendor_id == 0xFFFF) {
+        //         continue;
+        //     }
 
-            vf.print();
-        }
+        //     serial.println("{}", .{vf});
+        // }
 
-        if (device.header_type().is_standard_header()) {
+        if (device.header_type == 0x0) {
             for (0..6) |n| {
                 serial.println("BAR {} = {any}", .{ n, device.bar(@intCast(n)) });
             }
 
-            const class = Pci.Class.from(device.class());
-            if (class == .Multimedia and device.subclass() == 3) {
-                device.set_master_flag();
-                device.set_mmio_flag();
-                @import("audio.zig").init(&device, function, slot) catch |err| {
+            const class = Pci.Class.from(device.class);
+
+            if (class == .Multimedia and device.subclass == 3) {
+                @import("audio.zig").init(&device) catch |err| {
                     serial.println("{any}", .{err});
                 };
             }

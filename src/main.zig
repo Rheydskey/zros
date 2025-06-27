@@ -152,11 +152,9 @@ pub fn main() !noreturn {
 
     syscall.init();
 
-    // const acpi = @import("./acpi/acpi.zig");
+    pci.scan();
 
-    // pci.scan(acpi.mcfg.?.get_configuration());
-
-    try load_tasks(kernel_stack);
+    // try load_tasks(kernel_stack);
 
     while (true) {
         asm volatile ("hlt");

@@ -26,6 +26,8 @@ export ARGS="-serial mon:stdio \
                    -m 1024M \
                    -M q35 \
                    -cpu host \
+                   -display none \
+                   -trace "pci_*" \
                    -smp 4 \
                    -bios $file"
 

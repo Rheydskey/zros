@@ -216,6 +216,12 @@ pub fn remap_page(pml: *Pml, virt: u64, phys: u64, flags: u64) !void {
     );
 }
 
+pub fn remap_range(pml: *Pml, virt: u64, phys: u64, flags: u64, len: u64) !void {
+    for (0..len) |i| {
+        try remap_page(pml, virt + pmm.PAGE_SIZE * i, phys + pmm.PAGE_SIZE * i, flags);
+    }
+}
+
 fn map_section_range(start_addr: u64, end_addr: u64, flags: u64) !void {
     var addr = utils.align_down(start_addr, pmm.PAGE_SIZE);
 

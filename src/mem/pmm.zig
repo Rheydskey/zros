@@ -73,7 +73,12 @@ pub fn pmm_init(mmap: *limine.MemoryMapResponse, hhdm: *limine.HhdmResponse) !vo
 
 pub fn alloc(size: usize) !*void {
     // TODO: OPTIMIZATION
-    const size_needed: u64 = size / PAGE_SIZE;
+    return alloc_page(size / PAGE_SIZE);
+}
+
+pub fn alloc_page(size: usize) !*void {
+    // TODO: OPTIMIZATION
+    const size_needed: u64 = size;
     var length_free_block: u64 = 0;
 
     for (0..bitmap.?.size) |i| {
@@ -113,10 +118,10 @@ fn inittest() !u64 {
 
     var entry =
         limine.MemoryMapEntry{
-        .base = 0,
-        .length = fakememorysize,
-        .kind = .usable,
-    };
+            .base = 0,
+            .length = fakememorysize,
+            .kind = .usable,
+        };
     var entries = [_]*limine.MemoryMapEntry{&entry};
     var mmap = limine.MemoryMapResponse{
         .revision = 0,
