@@ -17,6 +17,9 @@ pub const PciDevice = struct {
     class: u8,
     subclass: u8,
 
+    msi: ?u8,
+    msix: ?u8,
+
     // For later
     bars: []PciBar,
     mmios: []PciMmio,
@@ -31,6 +34,8 @@ pub const PciDevice = struct {
             .header_type = header_type,
             .class = class,
             .subclass = subclass,
+            .msi = null,
+            .msix = null,
             .bars = &[0]PciBar{},
             .mmios = &[0]PciMmio{},
         };
@@ -44,6 +49,19 @@ pub const PciDevice = struct {
         const subclass = addr.addOffset(0xa).read(u8);
 
         return PciDevice.from(addr.bus_no, addr.device_no, addr.fn_no, device_id, vendor_id, header_type, class, subclass);
+    }
+
+    pub fn parseCaps(self: *@This()) void {
+        var nextoff: u8 = self.offset(0x34).read(u8);
+        while (nextoff != 0) {
+            const id = self.offset(nextoff).read(u8);
+            switch (id) {
+                0x5 => self.msi = nextoff,
+                0x11 => self.msix = nextoff,
+                else => {},
+            }
+            nextoff = self.offset(nextoff + 1).read(u8);
+        }
     }
 
     pub fn max_bar_count(self: *const PciDevice) u8 {
@@ -64,48 +82,41 @@ pub const PciDevice = struct {
     }
 
     /// https://wiki.osdev.org/PCI#Command_Register
-    const CommandRegister = packed struct(u16) {
-        io_space: bool,
-        memory_space: bool,
-        bus_master: bool,
-        special_cycles: bool,
-        memory_write_invalidate_enable: bool,
-        vga_palette_snoop: bool,
-        parity_error_response: bool,
-        _reserved0: bool,
-        serr_enable: bool,
-        fast_back_to_back_enable: bool,
-        interrupt_disable: bool,
-        _reserved1: u5,
+    pub const CommandFlag = struct {
+        pub const IOSpace = 1;
+        pub const MemorySpace = (1 << 1);
+        pub const BusMaster = (1 << 2);
     };
 
-    pub fn command(self: @This()) CommandRegister {
-        return @bitCast(self.offset(0x4).read(u16));
+    pub fn command(self: @This()) u16 {
+        return self.offset(0x4).read(u16);
     }
 
     pub fn status(self: @This()) u16 {
         return self.offset(0x6).read(u16);
     }
 
-    pub fn set_command(self: @This(), commandreg: CommandRegister) void {
-        self.offset(0x4).write(u16, @bitCast(commandreg));
+    pub fn set_command(self: @This(), commandreg: u16) void {
+        self.offset(0x4).write(u16, commandreg);
+    }
+
+    pub fn capabilities(_: @This()) ?void {
+        // if (self.status() & (1 << 4) != (1 << 4)) {
+        //     return null;
+        // }
+        // const cap_ptr = self.offset(0x34).read(u8) & ~0b11;
+        // // 0x3C is the last register + 4
+        // const cap = self.offset(0x3C + 4 + cap_ptr);
+
+        return null;
     }
 
     pub fn set_master_flag(self: @This()) void {
-        var command_reg = self.command();
-
-        serial.println("{}", .{command_reg});
-        serial.println("{b}", .{@as(u16, @bitCast(command_reg))});
-        command_reg.bus_master = true;
-        self.set_command(command_reg);
-
-        serial.println("{b}", .{@as(u16, @bitCast(self.command()))});
+        self.set_command(self.command() | CommandFlag.BusMaster);
     }
 
     pub fn set_mmio_flag(self: @This()) void {
-        var command_reg = self.command();
-        command_reg.memory_space = true;
-        self.set_command(command_reg);
+        self.set_command(self.command() | CommandFlag.MemorySpace);
     }
 
     pub fn bar(self: *const PciDevice, n: u8) ?PciBar {
@@ -113,7 +124,12 @@ pub const PciDevice = struct {
             return null;
         }
 
-        return PciBar.fromBarAddr(&self.offset(0x10 + 4 * n));
+        const pcibar = PciBar.fromBarAddr(&self.offset(0x10 + 4 * n));
+        if (pcibar.Mmio32.base == 0) {
+            return null;
+        }
+
+        return pcibar;
     }
 };
 
@@ -143,13 +159,9 @@ pub const PciBar = union(enum) {
 
     fn getLength(addr: *const PciAddr) usize {
         const previous = addr.*.read(u32);
-
         addr.*.write(u32, ~@as(u32, 0));
-
         const size = (~addr.*.read(u32)) + 1;
-
         addr.*.write(u32, previous);
-
         return size;
     }
 
@@ -167,7 +179,7 @@ pub const PciBar = union(enum) {
             };
         }
 
-        const is_64bits = (value >> 1) & 0b11 == 0x2;
+        const is_64bits = (value >> 1) & 0b11 == 0b11;
 
         const base = switch (is_64bits) {
             false => value & 0xfffffff0,
@@ -240,10 +252,10 @@ pub const PciAddr = packed struct(u32) {
         return entry.write(self, size, value);
     }
 
-    pub fn get_addr(self: @This(), cfg: acpi.Mcfg.Configuration) u64 {
-        const addr: u64 = (@as(u64, self.bus_no - cfg.start) << 20 | @as(u64, self.device_no) << 15 | @as(u64, self.fn_no) << 12);
-        return addr + limine_rq.hhdm.response.?.offset + cfg.base_addr + self.offset;
-    }
+    // pub fn get_addr(self: @This(), cfg: acpi.Mcfg.Configuration) u64 {
+    //     const addr: u64 = (@as(u64, self.bus_no - cfg.start) << 20 | @as(u64, self.device_no) << 15 | @as(u64, self.fn_no) << 12);
+    //     return addr + limine_rq.hhdm.response.?.offset + cfg.base_addr + self.offset;
+    // }
 };
 
 pub const HeaderType = packed struct(u8) {
@@ -263,118 +275,96 @@ pub const HeaderType = packed struct(u8) {
     }
 };
 
-pub const Pci = struct {
-    bus: u8,
-    slot: u5,
-    function: u3,
-    mcfg: acpi.Mcfg.Configuration,
+// FROM: https://admin.pci-ids.ucw.cz/read/PD/
+const PciClass = enum {
+    UnclassifiedDevice,
+    MassStorage,
+    Network,
+    Display,
+    Multimedia,
+    Memory,
+    Bridge,
+    Communication,
+    GenericSystemPeripheral,
+    InputDevice,
+    DockingStation,
+    Processor,
+    SerialBus,
+    Wireless,
+    Intelligent,
+    SatelliteCommunications,
+    Encryption,
+    SignalProcessing,
+    ProcessingAccelerator,
+    NonEssentialInstrumentation,
+    Coprocessor,
+    Unassigned,
+    Unknown,
 
-    // FROM: https://admin.pci-ids.ucw.cz/read/PD/
-    const Class = enum {
-        UnclassifiedDevice,
-        MassStorage,
-        Network,
-        Display,
-        Multimedia,
-        Memory,
-        Bridge,
-        Communication,
-        GenericSystemPeripheral,
-        InputDevice,
-        DockingStation,
-        Processor,
-        SerialBus,
-        Wireless,
-        Intelligent,
-        SatelliteCommunications,
-        Encryption,
-        SignalProcessing,
-        ProcessingAccelerator,
-        NonEssentialInstrumentation,
-        Coprocessor,
-        Unassigned,
-        Unknown,
-
-        pub fn from(x: u8) Class {
-            return switch (x) {
-                0 => Class.UnclassifiedDevice,
-                1 => Class.MassStorage,
-                2 => Class.Network,
-                3 => Class.Display,
-                4 => Class.Multimedia,
-                5 => Class.Memory,
-                6 => Class.Bridge,
-                7 => Class.Communication,
-                8 => Class.GenericSystemPeripheral,
-                9 => Class.InputDevice,
-                0xA => Class.DockingStation,
-                0xB => Class.Processor,
-                0xC => Class.SerialBus,
-                0xD => Class.Wireless,
-                0xE => Class.Intelligent,
-                0xF => Class.SatelliteCommunications,
-                0x10 => Class.Encryption,
-                0x11 => Class.SignalProcessing,
-                0x12 => Class.ProcessingAccelerator,
-                0x13 => Class.NonEssentialInstrumentation,
-                0x40 => Class.Coprocessor,
-                0xFF => Class.Unassigned,
-                else => Class.Unknown,
-            };
-        }
-    };
-
-    const IS_IO: u32 = 1;
-    const BAR_TYPE_MASK: u32 = 0x6;
-    const BAR_TYPE_64BIT: u32 = 0x4;
-    const BAR_PORT_MASK: u32 = 0xFFFF_FFFC;
-    const BAR_MMIO_ADDR_MASK: u32 = 0xFFFF_FFF0;
+    pub fn from(x: u8) @This() {
+        return switch (x) {
+            0 => @This().UnclassifiedDevice,
+            1 => @This().MassStorage,
+            2 => @This().Network,
+            3 => @This().Display,
+            4 => @This().Multimedia,
+            5 => @This().Memory,
+            6 => @This().Bridge,
+            7 => @This().Communication,
+            8 => @This().GenericSystemPeripheral,
+            9 => @This().InputDevice,
+            0xA => @This().DockingStation,
+            0xB => @This().Processor,
+            0xC => @This().SerialBus,
+            0xD => @This().Wireless,
+            0xE => @This().Intelligent,
+            0xF => @This().SatelliteCommunications,
+            0x10 => @This().Encryption,
+            0x11 => @This().SignalProcessing,
+            0x12 => @This().ProcessingAccelerator,
+            0x13 => @This().NonEssentialInstrumentation,
+            0x40 => @This().Coprocessor,
+            0xFF => @This().Unassigned,
+            else => @This().Unknown,
+        };
+    }
 };
 
 pub fn scan() void {
     for (0..32) |slot_usize| {
         const slot: u5 = @intCast(slot_usize);
-        const addr: PciAddr = .{
-            .bus_no = 0,
-            .device_no = slot,
-            .fn_no = 0,
-            .offset = 0x0,
-        };
+        var func: u3 = 0;
+        while (func < 7) : (func += 1) {
+            const addr: PciAddr = .{
+                .bus_no = 0,
+                .device_no = slot,
+                .fn_no = func,
+                .offset = 0x0,
+            };
 
-        const device = PciDevice.fromPciAddr(&addr);
+            var device = PciDevice.fromPciAddr(&addr);
 
-        if (device.vendor_id == 0xFFFF) {
-            continue;
-        }
-
-        serial.println("{}", .{device});
-        // var function: u3 = 1;
-        // while (function < 7) : (function += 1) {
-        //     const vf = PciDevice.fromPciAddr(&.{
-        //         .bus_no = 0,
-        //         .device_no = slot,
-        //         .fn_no = function,
-        //         .offset = 0,
-        //     });
-
-        //     if (vf.vendor_id == 0xFFFF) {
-        //         continue;
-        //     }
-
-        //     serial.println("{}", .{vf});
-        // }
-
-        if (device.header_type == 0x0) {
-            for (0..6) |n| {
-                serial.println("BAR {} = {any}", .{ n, device.bar(@intCast(n)) });
+            if (device.vendor_id == 0xFFFF) {
+                continue;
             }
 
-            const class = Pci.Class.from(device.class);
+            if (device.status() & (1 << 4) == (1 << 4)) {
+                device.parseCaps();
+            }
 
-            if (class == .Multimedia and device.subclass == 3) {
-                @import("audio.zig").init(&device) catch |err| {
-                    serial.println("{any}", .{err});
-                };
+            serial.println("{any}", .{device});
+            if (device.header_type == 0x0) {
+                for (0..6) |n| {
+                    serial.println("BAR {} = {any}", .{ n, device.bar(@intCast(n)) });
+                }
+
+                const class = PciClass.from(device.class);
+
+                if (class == .Multimedia and device.subclass == 3) {
+                    @import("audio.zig").init(&device) catch |err| {
+                        serial.println("{any}", .{err});
+                    };
+                }
             }
         }
     }

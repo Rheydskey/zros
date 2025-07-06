@@ -2,53 +2,12 @@ const pci = @import("./pci.zig");
 const rq = @import("../limine_rq.zig");
 const serial = @import("./serial.zig");
 const pmm = @import("../mem/pmm.zig");
+const hpet = @import("../drivers/hpet.zig");
 
+// https://github.com/vlang/vinix/blob/main/kernel/modules/dev/hda/hda.v
 // https://osdev.wiki/wiki/Intel_High_Definition_Audio#Device_Registers
 // https://www.intel.com/content/dam/www/public/us/en/documents/product-specifications/high-definition-audio-specification.pdf
 const HdaRegister = packed struct {
-    /// Command output ring buffer(Corb)
-    const Corb = packed struct(u128) {
-        corb_lower_base: u32,
-        corb_upper_base: u32,
-        corb_writer_ptr: u16,
-        corb_read_ptr: u16,
-        corb_ctrl: u8,
-        corb_status: u8,
-        corb_size: u8,
-        reserved: u8,
-
-        pub fn set_corb(self: *volatile @This(), value: u64) void {
-            self.corb_lower_base = @intCast(value & 0xFFFF_FFFF);
-            self.corb_upper_base = @intCast(value >> 32 & 0xFFFF_FFFF);
-        }
-    };
-
-    /// Response input ring buffer(Rirb)
-    const Rirb = packed struct(u128) {
-        rirb_lower_base: u32,
-        rirb_upper_base: u32,
-        rirb_writer_ptr: u16,
-        response_interrupt_count: u16,
-        rirb_ctrl: u8,
-        rirb_status: u8,
-        rirb_size: u8,
-        reserved: u8,
-
-        pub fn set_rirb(self: *volatile @This(), value: u64) void {
-            self.rirb_lower_base = @intCast(value & 0xFFFF_FFFF);
-            self.rirb_upper_base = @intCast(value >> 32 & 0xFFFF_FFFF);
-        }
-    };
-
-    const GlobalCapabilities = packed struct(u16) {
-        is_64bits: bool,
-        // sdo = serial data out signals
-        sdo_count: u2,
-        bidirection_stream_count: u5,
-        input_stream_count: u4,
-        output_stream_count: u4,
-    };
-
     global_caps: GlobalCapabilities,
     min_ver: u8,
     maj_ver: u8,
@@ -62,11 +21,27 @@ const HdaRegister = packed struct {
         reserved1: u23,
 
         pub fn reset(self: *volatile @This()) void {
-            self.controller_reset = 0;
-        }
+            // Controller is running, we'll stop it
+            if ((self.controller_reset & 1) != 0) {
+                @panic("HDA: The controller is running");
+            }
 
-        pub fn is_in_reset_state(self: *volatile @This()) bool {
-            return self.controller_reset == 0;
+            self.controller_reset = 0;
+
+            while (self.controller_reset != 0) {}
+
+            serial.println("Stage 1", .{});
+
+            hpet.hpet.?.sleep(200);
+
+            self.controller_reset = 1;
+            while (true) {
+                if (self.controller_reset != 0) {
+                    break;
+                }
+            }
+
+            serial.println("R U ON ????", .{});
         }
     },
     wake_enable: u16,
@@ -91,14 +66,90 @@ const HdaRegister = packed struct {
     immediate_command_status: u16,
     reserved5: u48,
 
-    dma_position_lower_base: u32,
-    dma_position_upper_base: u32,
+    dma_position_base: u64,
+
+    /// Command output ring buffer(Corb)
+    const Corb = packed struct(u128) {
+        corb_base: u64,
+        corb_writer_ptr: u16,
+        corb_read_ptr: u16,
+        corb_ctrl: u8,
+        corb_status: u8,
+        corb_size: u8,
+        reserved: u8,
+
+        pub fn set_corb(self: *volatile @This(), value: u64) void {
+            self.corb_base = value;
+        }
+    };
+
+    /// Response input ring buffer(Rirb)
+    const Rirb = packed struct(u128) {
+        rirb_base: u64,
+        rirb_writer_ptr: u16,
+        response_interrupt_count: u16,
+        rirb_ctrl: u8,
+        rirb_status: u8,
+        rirb_size: u8,
+        reserved: u8,
+
+        pub fn set_rirb(self: *volatile @This(), value: u64) void {
+            self.rirb_base = value;
+        }
+    };
+
+    const GlobalCapabilities = packed struct(u16) {
+        is_64bits: bool,
+        // sdo = serial data out signals
+        sdo_count: u2,
+        bidirection_stream_count: u5,
+        input_stream_count: u4,
+        output_stream_count: u4,
+    };
+
+    pub fn init_corb(self: *volatile @This()) !void {
+        const corb_size = self.corb.corb_size;
+        if (corb_size & (1 << 6) == (1 << 6)) {
+            self.corb.corb_size |= 0b10;
+        } else if (corb_size & (1 << 5) == (1 << 5)) {
+            self.corb.corb_size |= 0b1;
+        }
+
+        const addr = try pmm.alloc(1);
+
+        self.corb.set_corb(@intFromPtr(addr));
+    }
+
+    pub fn init_rirb(self: *volatile @This()) !void {
+        const rirb_size = self.rirb.rirb_size;
+        if (rirb_size & (1 << 6) == (1 << 6)) {
+            self.rirb.rirb_size |= 0b10;
+        } else if (rirb_size & (1 << 5) == (1 << 5)) {
+            self.rirb.rirb_size |= 0b1;
+        }
+
+        const addr = try pmm.alloc(1);
+
+        self.rirb.set_rirb(@intFromPtr(addr));
+    }
+
+    pub fn init_dma(self: *volatile @This()) !void {
+        const addr = try pmm.alloc(1);
+        self.dma_position_base = @intFromPtr(addr);
+    }
+
+    pub fn start_corb(self: *volatile @This()) void {
+        self.corb.corb_ctrl |= (1 << 1);
+    }
+
+    pub fn start_rirb(self: *volatile @This()) void {
+        self.rirb.rirb_ctrl |= (1 << 1);
+    }
 };
 
 const IntelHda = struct {
-    pci: *pci.Pci,
-
-    register: *HdaRegister,
+    pci: *pci.PciDevice,
+    register: *volatile HdaRegister,
 };
 
 pub fn init(device: *const pci.PciDevice) !void {
@@ -108,32 +159,27 @@ pub fn init(device: *const pci.PciDevice) !void {
         .Mmio32 => |bar| {
             const mmio = bar.mmio;
 
-            serial.println("{X}, PTR: {X} mmio: {x}", .{ bar.base, bar.base + rq.hhdm.response.?.offset, mmio.virt_addr });
+            _ = device.capabilities();
 
             const hda_register: *volatile HdaRegister = @ptrFromInt(mmio.virt_addr);
 
-            serial.println("{any}", .{hda_register});
-
             hda_register.global_ctrl.reset();
-            while (hda_register.global_ctrl.is_in_reset_state()) {}
-
-            serial.println("Reseted", .{});
-
-            @import("../drivers/hpet.zig").hpet.?.sleep(1);
 
             if (!hda_register.global_caps.is_64bits) {
                 @panic("Unsupported 32-bit HDA");
             }
+            try hda_register.init_corb();
+            try hda_register.init_rirb();
+            try hda_register.init_dma();
 
-            // FIXME: use correct value
-            hda_register.corb.corb_size = 2;
-            hda_register.rirb.rirb_size = 2;
+            hda_register.start_corb();
+            hda_register.start_rirb();
 
-            const corb_phys = try pmm.alloc_page(1);
-            const rirb_phys = try pmm.alloc_page(1);
-            // const dma_phys = try pmm.alloc_page(1);
-            hda_register.corb.set_corb(@intFromPtr(corb_phys));
-            hda_register.rirb.set_rirb(@intFromPtr(rirb_phys));
+            hda_register.interrupt_ctrl |= 0xFF;
+
+            for (0..hda_register.global_caps.output_stream_count) |_| {}
+
+            for (0..hda_register.global_caps.input_stream_count) |_| {}
 
             serial.println("{any}", .{hda_register});
         },
