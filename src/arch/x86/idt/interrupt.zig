@@ -149,7 +149,7 @@ pub fn irq_handler(ctx: *Context) void {
     }
 }
 
-pub export fn interrupt_handler(ctx: *Context) callconv(.C) u64 {
+pub export fn interrupt_handler(ctx: *Context) callconv(.c) u64 {
     if (ctx.interrupt_no < 32) {
         Log.log(ctx);
     } else if (ctx.interrupt_no <= 32 + 15) {

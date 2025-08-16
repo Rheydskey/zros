@@ -55,21 +55,21 @@ pub fn handle(scancode: u8) void {
     switch (event) {
         KeyboardEvent.Key => {
             if (shift) {
-                serial.Serial.write(MAJKEYBOARDMAP[scancode]);
-                screen.print(MAJKEYBOARDMAP[scancode]);
+                serial.print("{c}", .{MAJKEYBOARDMAP[scancode]});
+                screen.print("{c}", .{MAJKEYBOARDMAP[scancode]});
                 return;
             }
-            serial.Serial.write(KEYBOARDMAP[scancode]);
-            screen.print(KEYBOARDMAP[scancode]);
+            serial.print("{c}", .{KEYBOARDMAP[scancode]});
+            screen.print("{c}", .{KEYBOARDMAP[scancode]});
         },
         KeyboardEvent.Space => {
-            serial.Serial.write(' ');
-            screen.print(' ');
+            serial.print(" ", .{});
+            screen.print(" ", .{});
         },
         KeyboardEvent.BackSpace => {
-            screen.remove(10);
-            screen.print(' ');
-            screen.remove(10);
+            screen.previous(1);
+            screen.print(" ", .{});
+            screen.previous(1);
         },
         KeyboardEvent.Shift => shift = !shift,
         KeyboardEvent.Enter => {

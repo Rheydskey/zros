@@ -33,9 +33,9 @@ pub fn panic(msg: []const u8, _: ?*builtin.StackTrace, ret_addr: ?usize) noretur
     if (fb.screen != null) {
         var screen = &fb.screen.?;
 
-        screen.resetAll();
-        screen.println("===== PANIC =====");
-        screen.println(msg);
+        screen.reset();
+        screen.println("===== PANIC =====", .{});
+        screen.println("{s}", .{msg});
     }
 
     const addr = ret_addr orelse @returnAddress();
@@ -46,7 +46,7 @@ pub fn panic(msg: []const u8, _: ?*builtin.StackTrace, ret_addr: ?usize) noretur
     if (fb.screen != null) {
         var screen = &fb.screen.?;
 
-        screen.println("Stacktrace:");
+        screen.println("Stacktrace:", .{});
     }
 
     serial.println_nolock("Stacktrace:", .{});
@@ -54,7 +54,7 @@ pub fn panic(msg: []const u8, _: ?*builtin.StackTrace, ret_addr: ?usize) noretur
     while (si.next()) |trace| {
         if (fb.screen) |_| {
             var screen = &fb.screen.?;
-            _ = screen.writer().print("0x{X}\n", .{trace}) catch {};
+            screen.println("0x{X}", .{trace});
         }
 
         serial.println_nolock("0x{X}", .{trace});
@@ -126,11 +126,12 @@ pub fn main() !noreturn {
 
     if (limine_rq.framebuffer.response) |response| {
         if (response.framebuffer_count > 0) {
-            const framebuf = response.framebuffers_ptr[0];
+            const framebuf = response.getFramebuffers()[0];
             serial.println("{any}", .{framebuf});
 
             const a: *align(1) const psf.Psf2 = @ptrCast(psf.lucida);
             fb.fb_ptr = fb.Framebuffer.init(@intFromPtr(framebuf.address), framebuf.height, framebuf.width, framebuf.pitch, framebuf.bpp, a);
+            fb.screen = fb.ScreenWriter.init(&(fb.fb_ptr.?));
         }
     }
 
@@ -138,13 +139,13 @@ pub fn main() !noreturn {
 
     gdt.tss_init(@intFromPtr(kernel_stack.ptr) + 16000);
 
-    fb.screen.?.println("ZROS - 0.0.1+" ++ build_options.git_version);
-    fb.screen.?.println("Hewwo worwd");
-    fb.screen.?.print(0xA0);
+    fb.screen.?.println("{s}", .{"ZROS - 0.0.1+" ++ build_options.git_version});
+    fb.screen.?.println("Hewwo worwd", .{});
+    fb.screen.?.println("{c}", .{0xA0});
 
     try drivers.init();
 
-    fb.screen.?.writer().print("HHDM: 0x{x} KADDR: 0x{x}", .{ limine_rq.hhdm.response.?.offset, limine_rq.kaddr_req.response.?.virtual_base }) catch {
+    fb.screen.?.interface.print("HHDM: 0x{x} KADDR: 0x{x}\n", .{ limine_rq.hhdm.response.?.offset, limine_rq.kaddr_req.response.?.virtual_base }) catch {
         @panic("Cannot write");
     };
 
