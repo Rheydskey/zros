@@ -104,7 +104,7 @@ fn load_tasks(kernel_stack: []u8) !void {
 }
 
 pub fn main() !noreturn {
-    _ = serial.Serial.init() catch {
+    _ = serial.Serial.init(serial.Com.COM1) catch {
         asm volatile ("hlt");
         return error.CannotWrite;
     };

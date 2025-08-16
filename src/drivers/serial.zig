@@ -18,8 +18,8 @@ pub const Com = enum(u16) {
 };
 
 pub const Serial = struct {
-    pub fn init() !Serial {
-        const com: u16 = @intFromEnum(Com.COM1);
+    pub fn init(c: Com) !Serial {
+        const com: u16 = @intFromEnum(c);
 
         outb(com + 1, 0x00);
         outb(com + 3, 0x80);
