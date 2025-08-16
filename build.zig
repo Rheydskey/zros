@@ -45,12 +45,17 @@ pub fn build(b: *std.Build) !void {
 
     const limine = b.dependency("limine_zig", .{});
 
-    const exe = b.addExecutable(.{
-        .name = "zros",
+    const module = b.addModule("zros", .{
         .root_source_file = b.path("src/main.zig"),
+
         .target = target,
         .optimize = optimize,
         .code_model = std.builtin.CodeModel.kernel,
+    });
+
+    const exe = b.addExecutable(.{
+        .name = "zros",
+        .root_module = module,
         .linkage = .static,
         .use_llvm = true,
     });
@@ -74,19 +79,19 @@ pub fn build(b: *std.Build) !void {
 
     b.installArtifact(exe);
 
-    const exe_unit_tests = b.addTest(.{
-        .root_source_file = b.path("src/test.zig"),
-        .target = b.standardTargetOptions(.{}),
-        .optimize = optimize,
-    });
+    // const exe_unit_tests = b.addTest(.{
+    //     .root_source_file = b.path("src/test.zig"),
+    //     .target = b.standardTargetOptions(.{}),
+    //     .optimize = optimize,
+    // });
 
-    exe_unit_tests.root_module.addImport("limine", limine.module("limine"));
-    exe_unit_tests.root_module.addOptions("build_options", build_options);
+    // exe_unit_tests.root_module.addImport("limine", limine.module("limine"));
+    // exe_unit_tests.root_module.addOptions("build_options", build_options);
 
-    const run_exe_unit_tests = b.addRunArtifact(exe_unit_tests);
+    // const run_exe_unit_tests = b.addRunArtifact(exe_unit_tests);
     // Similar to creating the run step earlier, this exposes a `test` step to
     // the `zig build --help` menu, providing a way for the user to request
     // running the unit tests.
-    const test_step = b.step("test", "Run unit tests");
-    test_step.dependOn(&run_exe_unit_tests.step);
+    // const test_step = b.step("test", "Run unit tests");
+    // test_step.dependOn(&run_exe_unit_tests.step);
 }

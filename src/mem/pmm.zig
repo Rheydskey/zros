@@ -10,8 +10,8 @@ var base: ?u64 = null;
 var usable_size: usize = 0;
 
 fn find_block_for_bitmap(mmap: *limine.MemoryMapResponse, bitmap_size: u64) !*limine.MemoryMapEntry {
-    for (mmap.entries()) |entry| {
-        if (entry.kind != limine.MemoryMapEntryType.usable) {
+    for (mmap.getEntries()) |entry| {
+        if (entry.type != limine.MemoryMapType.usable) {
             continue;
         }
 
@@ -27,8 +27,8 @@ pub fn pmm_init(mmap: *limine.MemoryMapResponse, hhdm: *limine.HhdmResponse) !vo
     base = hhdm.offset;
     var highest_addr: u64 = 0;
 
-    for (mmap.entries()) |entry| {
-        if (entry.kind == .usable) {
+    for (mmap.getEntries()) |entry| {
+        if (entry.type == .usable) {
             const end_addr = entry.base + entry.length;
 
             if (end_addr > highest_addr) {
@@ -38,7 +38,7 @@ pub fn pmm_init(mmap: *limine.MemoryMapResponse, hhdm: *limine.HhdmResponse) !vo
             usable_size += entry.length;
         }
 
-        serial.println("MMAP - base: 0x{X}-0x{X} kind: {}", .{ entry.base, entry.base + entry.length, entry.kind });
+        serial.println("MMAP - base: 0x{X}-0x{X} kind: {}", .{ entry.base, entry.base + entry.length, entry.type });
     }
 
     if (highest_addr == 0) {
@@ -57,8 +57,8 @@ pub fn pmm_init(mmap: *limine.MemoryMapResponse, hhdm: *limine.HhdmResponse) !vo
     bitmap_block.base += bitmap_size;
     bitmap_block.length -= bitmap_size;
 
-    for (mmap.entries()) |entry| {
-        if (entry.kind == .usable) {
+    for (mmap.getEntries()) |entry| {
+        if (entry.type == .usable) {
             var i: u64 = entry.base;
             while (i < entry.base + entry.length) : (i += PAGE_SIZE) {
                 bitmap.?.unset(i / PAGE_SIZE);

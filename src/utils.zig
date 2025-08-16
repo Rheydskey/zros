@@ -12,7 +12,7 @@ pub inline fn is_align(addr: usize, alignment: usize) bool {
 
 pub fn read_cr0() u64 {
     return asm volatile ("mov %%cr0, %[cr0]"
-        : [cr0] "=r" (-> u64),
+        : [cr0] "=rax" (-> u64),
     );
 }
 
@@ -49,8 +49,7 @@ pub const Msr = struct {
             : [low] "=rax" (low),
               [high] "=rdx" (high),
             : [msr] "{rcx}" (msr),
-            : "=r"
-        );
+            : .{ .rax = true });
 
         return @as(u64, @intCast(high)) << 32 | low;
     }

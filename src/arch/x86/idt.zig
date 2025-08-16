@@ -35,7 +35,7 @@ pub const IdtEntry = packed struct(u128) {
         self.*.offset_h = @intCast(base >> 32);
     }
 
-    pub const InterruptHandler = *const fn (interrupt: *const interrupt.Regs) callconv(.C) void;
+    pub const InterruptHandler = *const fn (interrupt: *const interrupt.Regs) callconv(.c) void;
 
     pub fn new(handler: u64, flags: u8) @This() {
         var self = IdtEntry{ .type_attr = flags };

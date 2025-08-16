@@ -10,8 +10,8 @@ test $? -eq 0 || exit;
 
 bash ./meta/scripts/makeiso.sh
 
-
 file="meta/bin/ovmf-code-x86_64.fd"
+
 if [ ! -f $file ]
 then
   wget "https://github.com/osdev0/edk2-ovmf-nightly/releases/latest/download/ovmf-code-x86_64.fd" -O "$file"
@@ -26,7 +26,6 @@ export ARGS="-serial mon:stdio \
                    -m 1024M \
                    -M q35 \
                    -cpu host \
-                   -display none \
                    -trace "pci_*" \
                    -smp 4 \
                    -bios $file"

@@ -71,7 +71,7 @@ const Rspt = packed struct(u288) {
     }
 
     pub fn get(self: *align(1) @This(), name: []const u8) !*Rspt {
-        const entries = @as([*]u32, @alignCast(@ptrCast(&self.end)))[0..self.length()];
+        const entries = @as([*]u32, @ptrCast(@alignCast(&self.end)))[0..self.length()];
         for (entries) |entry| {
             const ptr: *Rspt = @ptrFromInt(entry + limine_rq.hhdm.response.?.offset);
 
@@ -293,7 +293,7 @@ pub fn init() !void {
 
     const response = limine_rq.rspd.response orelse return error.NoRspd;
 
-    rsdp = @alignCast(@ptrCast(response.address));
+    rsdp = @ptrFromInt(response.address);
 
     serial.println("{any}", .{rsdp});
     if (rsdp.?.revision > 1) {

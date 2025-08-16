@@ -89,7 +89,7 @@ pub fn init(memmap: *limine.MemoryMapResponse) !void {
 
     const alloc_page = try pmm.alloc(pmm.PAGE_SIZE);
 
-    kernel_pml4 = @alignCast(@ptrCast(mem.mmap_phys_to_virt_ptr(alloc_page)));
+    kernel_pml4 = @ptrCast(@alignCast(mem.mmap_phys_to_virt_ptr(alloc_page)));
     @memset(@as(*[pmm.PAGE_SIZE]u8, @ptrCast(kernel_pml4)), 0);
 
     for (256..512) |i| {
@@ -108,8 +108,8 @@ pub fn init(memmap: *limine.MemoryMapResponse) !void {
     }
 
     for (0..memmap.entry_count) |i| {
-        const entry = memmap.entries()[i];
-        if (entry.kind == .kernel_and_modules) {
+        const entry = memmap.getEntries()[i];
+        if (entry.type == .executable_and_modules) {
             const phys = try mem.PhysAddr.new(entry.base);
 
             try map_page(kernel_pml4.?, phys.to_kernel().addr, phys.addr, PmlEntryFlag.PRESENT | PmlEntryFlag.READ_WRITE);
@@ -212,8 +212,7 @@ pub fn remap_page(pml: *Pml, virt: u64, phys: u64, flags: u64) !void {
     asm volatile ("invlpg (%[addr])"
         :
         : [addr] "r" (virt),
-        : "memory"
-    );
+        : .{ .memory = true });
 }
 
 pub fn remap_range(pml: *Pml, virt: u64, phys: u64, flags: u64, len: u64) !void {

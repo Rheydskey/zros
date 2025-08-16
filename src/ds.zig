@@ -90,7 +90,7 @@ pub const BitMapU8 = struct {
     }
 
     pub fn debug(self: *Self) void {
-        serial.println("base: {x} size: {}", .{ &self.entries[0], self.size });
+        serial.println("base: {p} size: {}", .{ &self.entries[0], self.size });
 
         var start: u64 = 0;
         var state = self.get(start);

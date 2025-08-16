@@ -11,7 +11,6 @@ pub const Cr3 = packed struct(u64) {
         asm volatile ("mov %[value], %%cr3"
             :
             : [value] "r" (cr3_value),
-            : "memory"
-        );
+            : .{ .memory = true });
     }
 };

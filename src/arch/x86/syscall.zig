@@ -44,7 +44,7 @@ const SyscallId = enum(u8) {
     _,
 };
 
-export fn syscallHandler(registers: *Regs) callconv(.C) void {
+export fn syscallHandler(registers: *Regs) callconv(.c) void {
     const syscall_id: SyscallId = @enumFromInt(registers.rax);
     switch (syscall_id) {
         .Uwu => serial.println_nolock("UWU !!", .{}),
