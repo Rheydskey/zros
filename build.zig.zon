@@ -6,8 +6,8 @@
     .minimum_zig_version = "0.15.0-dev.337+4e700fdf8",
     .dependencies = .{
         .limine_zig = .{
-            .url = "git+https://github.com/Rheydskey/limine-zig.git#c78b41c7bd92ca88d36ad3f1b55db7af6ac15cbe",
-            .hash = "limine_zig-0.0.0-1TjwQG1fAAA21hVQdQCTiWDCwmYIpzMmCCmERZnrmtl7",
+            .url = "git+https://github.com/Rheydskey/limine-zig.git#1c1df6471bdef122272c3f92b58e37902cb7ab86",
+            .hash = "limine_zig-0.0.0-1TjwQGRfAAA8kO9_GYFMHM_UgFvSHA8EEjWkBlq_RQzg",
         },
     },
 }

@@ -2,7 +2,7 @@ const outb = @import("../asm.zig").outb;
 const inb = @import("../asm.zig").inb;
 const std = @import("std");
 const sync = @import("../sync.zig");
-const Io = @import("std").io;
+const Io = @import("std").Io;
 
 var serial_writer = sync.TicketLock(SerialWriter).init(SerialWriter.init(Com.COM1));
 

@@ -7,3 +7,5 @@ bx_enh_dbg.ini
 zros.hdd
 limine
 limine-zig
+zig-pkg
+disk.hdd

@@ -57,8 +57,12 @@ pub const Context = packed struct(u1408) {
 
 pub const Log = packed struct {
     const Stacktrace = packed struct {
-        next: *Stacktrace,
+        next: usize,
         addr: u64,
+
+        fn getNextStacktrace(self: @This()) ?*Stacktrace {
+            return @ptrFromInt(self.next);
+        }
     };
 
     const expections_name = [_][]const u8{
@@ -128,7 +132,7 @@ pub const Log = packed struct {
         var i: u32 = 0;
         while (@intFromPtr(rbp) != 0x0) : (i += 1) {
             serial.println_nolock("{}: 0x{X}", .{ i, rbp.addr });
-            rbp = rbp.next;
+            rbp = rbp.getNextStacktrace().?;
         }
     }
 };

@@ -1,4 +1,4 @@
-#!/bin/env bash
+#!/usr/bin/env bash
 
 export DEBUG=0
 export KVM=1
@@ -26,6 +26,9 @@ export ARGS="-serial mon:stdio \
                    -m 1024M \
                    -M q35 \
                    -cpu host \
+                   -drive id=disk,file=disk.hdd,if=none \
+                   -device ahci,id=ahci \
+                   -device ide-hd,drive=disk,bus=ahci.0
                    -trace "pci_*" \
                    -smp 4 \
                    -bios $file"

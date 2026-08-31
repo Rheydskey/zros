@@ -15,11 +15,12 @@ pub fn nasm_to(b: *std.Build, comptime file: AsmPath, exe: *std.Build.Step.Compi
 
     _ = b.run(&[_][]const u8{ "nasm", file.path_file, "-f", "elf64", "-o", output });
 
-    exe.addObjectFile(std.Build.LazyPath{ .cwd_relative = output });
+    exe.root_module.addObjectFile(std.Build.LazyPath{ .cwd_relative = output });
 }
 
 pub fn build(b: *std.Build) !void {
     const optimize = b.standardOptimizeOption(.{});
+    const io = std.Io.Threaded.global_single_threaded;
 
     const build_options = b.addOptions();
 
@@ -47,7 +48,6 @@ pub fn build(b: *std.Build) !void {
 
     const module = b.addModule("zros", .{
         .root_source_file = b.path("src/main.zig"),
-
         .target = target,
         .optimize = optimize,
         .code_model = std.builtin.CodeModel.kernel,
@@ -61,13 +61,15 @@ pub fn build(b: *std.Build) !void {
     });
 
     exe.pie = false;
-    exe.want_lto = false;
+    exe.lto = .none;
 
+    // exe.bundle_compiler_rt = false;
     exe.linker_script = b.path("meta/linker.ld");
     exe.root_module.addImport("limine", limine.module("limine"));
     exe.root_module.addOptions("build_options", build_options);
 
-    std.fs.cwd().makePath("./zig-cache/nasm") catch {};
+    std.Io.Dir.cwd().createDir(io.io(), "./zig-cache/nasm", .default_dir) catch {};
+    // std.fs.cwd().makePath("./zig-cache/nasm") catch {};
 
     try nasm_to(b, .{ .path_file = "./src/arch/x86/gdt/gdt.s", .file_name = "gdt" }, exe);
 
@@ -79,19 +81,36 @@ pub fn build(b: *std.Build) !void {
 
     b.installArtifact(exe);
 
-    // const exe_unit_tests = b.addTest(.{
-    //     .root_source_file = b.path("src/test.zig"),
-    //     .target = b.standardTargetOptions(.{}),
-    //     .optimize = optimize,
+    // ===================================
+
+    const test_mod = b.addModule("zros_test", .{
+        .root_source_file = b.path("tests/main.zig"),
+        .target = b.standardTargetOptions(.{}),
+        .optimize = optimize,
+    });
+
+    const mod_tests = b.addTest(.{
+        .root_module = test_mod,
+    });
+
+    mod_tests.root_module.addImport("zros", exe.root_module);
+    // A run step that will run the test executable.
+    const run_mod_tests = b.addRunArtifact(mod_tests);
+
+    // // Creates an executable that will run `test` blocks from the executable's
+    // // root module. Note that test executables only test one module at a time,
+    // // hence why we have to create two separate ones.
+    // const test_exe_tests = b.addTest(.{
+    //     .root_module = mod_tests.root_module,
     // });
 
-    // exe_unit_tests.root_module.addImport("limine", limine.module("limine"));
-    // exe_unit_tests.root_module.addOptions("build_options", build_options);
+    // // A run step that will run the second test executable.
+    // const run_exe_tests = b.addRunArtifact(test_exe_tests);
 
-    // const run_exe_unit_tests = b.addRunArtifact(exe_unit_tests);
-    // Similar to creating the run step earlier, this exposes a `test` step to
-    // the `zig build --help` menu, providing a way for the user to request
-    // running the unit tests.
-    // const test_step = b.step("test", "Run unit tests");
-    // test_step.dependOn(&run_exe_unit_tests.step);
+    // // A top level step for running all tests. dependOn can be called multiple
+    // // times and since the two run steps do not depend on one another, this will
+    // // make the two of them run in parallel.
+    const test_step = b.step("test", "Run tests");
+    test_step.dependOn(&run_mod_tests.step);
+    // test_step.dependOn(&run_exe_tests.step);
 }

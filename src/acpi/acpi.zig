@@ -7,16 +7,18 @@ const std = @import("std");
 const hpet = @import("../drivers/hpet.zig");
 const disable_pic = @import("../drivers/pic.zig").disable_pic;
 
-pub var rspt: ?*align(1) Rspt = null;
 pub var rsdp: ?*align(1) Rsdp = null;
+pub var rsdt: ?*align(1) Rsdt = null;
+
 pub var madt: ?*align(1) Madt = null;
-pub var xspt: ?*align(1) Xspt = null;
+pub var xsdt: ?*align(1) Xsdt = null;
 pub var mcfg: ?*align(1) Mcfg = null;
 
 pub var cpu_count: u32 = 0;
 
 pub const AcpiHeader = packed struct(u288) {
     signature: u32,
+    /// Length in bytes
     length: u32,
     revision: u8,
     checksum: u8,
@@ -26,31 +28,52 @@ pub const AcpiHeader = packed struct(u288) {
     creator_id: u32,
     creator_revision: u32,
 
+    const PACKED_SIZE = @bitSizeOf(AcpiHeader) / 8;
+
+    const Self = *align(1) @This();
+
+    inline fn get_signature_as_string(self: Self) []const u8 {
+        const ptrToSliceOfChars: [*]const u8 = @ptrCast(&self.signature);
+        return ptrToSliceOfChars[0..4];
+    }
+
     fn is_signature_eq(self: *align(1) @This(), name: []const u8) bool {
-        const signature_as_slice: [*]u8 = @ptrCast(&self.signature);
-        return std.mem.eql(u8, signature_as_slice[0..4], name);
+        return std.mem.eql(u8, self.get_signature_as_string(), name);
+    }
+
+    comptime {
+        std.testing.expectEqual(36, PACKED_SIZE) catch {
+            @compileError("Size is bad");
+        };
     }
 };
 
-const Xspt = packed struct {
+const Xsdt = packed struct {
     header: AcpiHeader,
     end: void,
 
-    pub inline fn length(self: *align(1) @This()) u64 {
-        return (self.header.length - @sizeOf(AcpiHeader)) / @sizeOf(u64);
+    const PACKED_SIZE = @bitSizeOf(AcpiHeader) / 8;
+
+    pub inline fn get_nb_of_entry(self: *align(1) @This()) u64 {
+        return (self.header.length - PACKED_SIZE) / @sizeOf(u64);
     }
 
-    pub fn get(self: *align(1) @This(), name: []const u8) !*align(1) Xspt {
-        const entries = @as([*]align(1) u64, @ptrCast(@alignCast(&self.end)))[0..self.length()];
+    pub fn get(self: *align(1) @This(), name: []const u8) !*align(1) AcpiHeader {
+        const hhdm_offset = limine_rq.hhdm.response.?.offset;
+        const table_start = @intFromPtr(self) + PACKED_SIZE;
+        const entries = @as([*]align(1) u64, @ptrFromInt(table_start))[0..self.get_nb_of_entry()];
+        serial.println("Finding {s} {}", .{ name, name.len });
         for (entries) |entry| {
-            const ptr: *align(1) Xspt = @ptrFromInt(entry + limine_rq.hhdm.response.?.offset);
+            const ptr: *align(1) AcpiHeader = @ptrFromInt(entry + hhdm_offset);
 
-            if (ptr.header.is_signature_eq(name)) {
+            serial.println("Entry with name: {s} {} {}", .{ ptr.get_signature_as_string(), ptr.get_signature_as_string().len, ptr.is_signature_eq(name) });
+
+            if (ptr.is_signature_eq(name)) {
                 return ptr;
             }
         }
 
-        return error.NotFound;
+        return error.EntryNotFound;
     }
 
     pub fn get_mcfg(self: *align(1) @This()) !*align(1) Mcfg {
@@ -62,18 +85,18 @@ const Xspt = packed struct {
     }
 };
 
-const Rspt = packed struct(u288) {
+const Rsdt = packed struct(u288) {
     header: AcpiHeader,
     end: void,
 
     pub inline fn length(self: *align(1) @This()) u32 {
-        return @divExact(self.header.length - @sizeOf(AcpiHeader), @sizeOf(u32));
+        return @divExact(self.header.length - AcpiHeader.PACKED_SIZE, @sizeOf(u32));
     }
 
-    pub fn get(self: *align(1) @This(), name: []const u8) !*Rspt {
+    pub fn get(self: *align(1) @This(), name: []const u8) !*Rsdt {
         const entries = @as([*]u32, @ptrCast(@alignCast(&self.end)))[0..self.length()];
         for (entries) |entry| {
-            const ptr: *Rspt = @ptrFromInt(entry + limine_rq.hhdm.response.?.offset);
+            const ptr: *Rsdt = @ptrFromInt(entry + limine_rq.hhdm.response.?.offset);
 
             if (ptr.header.is_signature_eq(name)) {
                 return ptr;
@@ -98,10 +121,15 @@ pub const Madt = packed struct {
     flags: u32,
     entries: void,
 
+    // REMOVE AT 0.17.0 with @backingInt()
+    const PACKED_SIZE = @bitSizeOf(@This()) / 8;
+
     pub const MadtEntryHeader = packed struct {
         entry_type: u8,
         length: u8,
         entry: void,
+
+        const PACKED_SIZE = @bitSizeOf(@This()) / 8;
     };
 
     pub const Iso = packed struct {
@@ -123,21 +151,30 @@ pub const Madt = packed struct {
         flags: packed struct(u32) { is_enabled: bool, is_online_capable: bool, other: u30 },
     };
 
+    pub inline fn getEntries(self: *align(1) @This()) *void {
+        return @ptrFromInt(@intFromPtr(self) + PACKED_SIZE);
+    }
+
+    pub inline fn getEnd(self: *align(1) @This()) usize {
+        return @intFromPtr(self) + self.header.length;
+    }
+
     pub fn read_entries(self: *align(1) @This()) void {
-        var entry: ?*Madt.MadtEntryHeader = undefined;
-        var i: usize = 0;
-        while (i < self.header.length - @sizeOf(@This())) {
-            entry = @ptrFromInt(@intFromPtr(&self.entries) + i);
+        const end: usize = self.getEnd();
+        var table: usize = @intFromPtr(self.getEntries());
+        var entry: *Madt.MadtEntryHeader = @ptrFromInt(table);
+        while (table < end) {
+            entry = @ptrFromInt(table);
             serial.println("{any}", .{entry});
 
-            switch (entry.?.entry_type) {
+            switch (entry.entry_type) {
                 0 => {
-                    const lapic_entry: *align(1) Madt.ProcessorLocalApic = @ptrCast(&entry.?.entry);
+                    const lapic_entry: *align(1) Madt.ProcessorLocalApic = @ptrCast(&entry.entry);
                     serial.println("{any}", .{lapic_entry});
                     cpu_count += 1;
                 },
                 1 => {
-                    const ioapic_struct: *align(1) Madt.IoApic = @ptrCast(&entry.?.entry);
+                    const ioapic_struct: *align(1) Madt.IoApic = @ptrCast(&entry.entry);
                     serial.println("{any}", .{ioapic_struct});
                 },
 
@@ -147,45 +184,48 @@ pub const Madt = packed struct {
                 },
 
                 else => {
-                    serial.println("UNSUPPORTED ({})", .{entry.?.entry_type});
+                    serial.println("UNSUPPORTED ({})", .{entry.entry_type});
                 },
             }
 
-            i += @max(@sizeOf(MadtEntryHeader), entry.?.length);
+            table += @max(MadtEntryHeader.PACKED_SIZE, entry.length);
         }
 
         serial.println("CPU COUNT: {}", .{cpu_count});
     }
 
     pub fn get_iso(self: *align(1) @This(), irq: u8) ?*align(1) Iso {
-        var entry: ?*Madt.MadtEntryHeader = null;
-        var i: usize = 0;
-        while (i < self.header.length - @sizeOf(@This())) {
-            entry = @ptrFromInt(@intFromPtr(&self.entries) + i);
-            if (entry.?.entry_type == 2) {
+        const end: usize = self.getEnd();
+        var table: usize = @intFromPtr(self.getEntries());
+        var entry: *Madt.MadtEntryHeader = @ptrFromInt(table);
+        while (table < end) {
+            entry = @ptrFromInt(table);
+            if (entry.entry_type == 2) {
                 const iso: *align(1) Madt.Iso = @ptrCast(entry);
                 if (iso.irq_src == irq) {
                     return iso;
                 }
             }
 
-            i += @max(@sizeOf(MadtEntryHeader), entry.?.length);
+            table += @max(MadtEntryHeader.PACKED_SIZE, entry.length);
         }
 
         return null;
     }
 
     pub fn get_ioapic(self: *align(1) @This()) !*align(1) IoApic {
-        var entry: ?*Madt.MadtEntryHeader = null;
-        var i: usize = 0;
-        while (i < self.header.length - @sizeOf(@This())) {
-            entry = @ptrFromInt(@intFromPtr(&self.entries) + i);
+        const end: usize = self.getEnd();
+        var table: usize = @intFromPtr(self.getEntries());
+        var entry: *Madt.MadtEntryHeader = @ptrFromInt(table);
 
-            if (entry.?.entry_type == 1) {
-                return @ptrCast(entry.?);
+        while (table < end) {
+            entry = @ptrFromInt(table);
+
+            if (entry.entry_type == 1) {
+                return @ptrCast(entry);
             }
 
-            i += @max(@sizeOf(MadtEntryHeader), entry.?.length);
+            table += @max(MadtEntryHeader.PACKED_SIZE, entry.length);
         }
 
         return error.NotFound;
@@ -203,7 +243,7 @@ const Rsdp = packed struct(u288) {
     extend_checksum: u8,
     reserved: u24,
 
-    pub inline fn get_xsdt(self: *align(1) @This()) !*align(1) Xspt {
+    pub inline fn get_xsdt(self: *align(1) @This()) !*align(1) Xsdt {
         if (self.revision <= 1) {
             return error.RevisionTooLow;
         }
@@ -211,7 +251,7 @@ const Rsdp = packed struct(u288) {
         return @ptrFromInt(self.xsdt + limine_rq.hhdm.response.?.offset);
     }
 
-    pub inline fn get_rsdt(self: *align(1) @This()) !*align(1) Rspt {
+    pub inline fn get_rsdt(self: *align(1) @This()) !*align(1) Rsdt {
         if (self.revision > 1) {
             serial.println("DEPRECATED with revision 2.\n You should use xsdt", .{});
         }
@@ -289,26 +329,33 @@ pub const Mcfg = packed struct(u352) {
 };
 
 pub fn init() !void {
+    serial.println("[INIT] ACPI", .{});
     disable_pic();
 
-    const response = limine_rq.rspd.response orelse return error.NoRspd;
+    const response = limine_rq.rsdp.response orelse return error.NoRsdp;
 
     rsdp = @ptrFromInt(response.address);
 
-    serial.println("{any}", .{rsdp});
+    serial.println("[DEBUG] Rsdp: {any}", .{rsdp});
+    serial.println("[DEBUG] RSDP Revision: {}", .{rsdp.?.revision});
+
     if (rsdp.?.revision > 1) {
-        xspt = try rsdp.?.get_xsdt();
-        serial.println("{any}", .{xspt});
+        xsdt = try rsdp.?.get_xsdt();
+        serial.println("XSPT: {any}", .{xsdt});
 
-        madt = try xspt.?.get_apic();
-        mcfg = try xspt.?.get_mcfg();
+        madt = try xsdt.?.get_apic();
+
+        serial.println("MADT: {any}", .{madt});
+        mcfg = try xsdt.?.get_mcfg();
     } else {
-        rspt = try rsdp.?.get_rsdt();
-        serial.println("{any}", .{rspt});
+        rsdt = try rsdp.?.get_rsdt();
+        serial.println("{any}", .{rsdt});
 
-        madt = try rspt.?.get_apic();
-        mcfg = try rspt.?.get_mcfg();
+        madt = try rsdt.?.get_apic();
+        mcfg = try rsdt.?.get_mcfg();
     }
+
+    serial.println("Try to read entries", .{});
 
     madt.?.read_entries();
 

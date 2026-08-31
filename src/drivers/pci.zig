@@ -3,6 +3,7 @@ const acpi = @import("../acpi/acpi.zig");
 const limine_rq = @import("../limine_rq.zig");
 const serial = @import("serial.zig");
 const mmio = @import("../mem/mmio.zig");
+const vmm = @import("../mem/vmm.zig");
 
 pub const PciDevice = struct {
     bus: u8,
@@ -192,8 +193,14 @@ pub const PciBar = union(enum) {
         };
 
         const prefetchable = value & 0b1000 == 0b1000;
-
         const pcimmio = mmio.Mmio.fromPhys(base, length / 4096);
+
+        if (!prefetchable) {
+            const pml = vmm.kernel_pml4.?;
+            vmm.remap_page(pml, pcimmio.virt_addr, pcimmio.phys_addr, vmm.PmlEntryFlag.DEFAULT | vmm.PmlEntryFlag.CACHING_DISABLE) catch {
+                @panic("CANNOT REMAP");
+            };
+        }
 
         if (is_64bits) {
             return .{
@@ -360,8 +367,14 @@ pub fn scan() void {
 
                 const class = PciClass.from(device.class);
 
-                if (class == .Multimedia and device.subclass == 3) {
-                    @import("audio.zig").init(&device) catch |err| {
+                // if (class == .Multimedia and device.subclass == 3) {
+                //     @import("audio.zig").init(&device) catch |err| {
+                //         serial.println("{any}", .{err});
+                //     };
+                // }
+
+                if (class == .MassStorage and device.subclass == 0x06) {
+                    @import("ahci.zig").init(&device) catch |err| {
                         serial.println("{any}", .{err});
                     };
                 }

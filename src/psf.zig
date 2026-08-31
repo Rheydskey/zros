@@ -37,7 +37,8 @@ pub const Psf2Header = packed struct(u256) {
 
 pub const Psf2 = packed struct {
     header: Psf2Header,
-    glyphs: void,
+
+    const PACKED_SIZE = @bitSizeOf(@This()) / 8;
 
     pub fn printHeader(self: *align(1) const @This()) void {
         serial.println("{any}", .{self.header});
@@ -53,8 +54,12 @@ pub const Psf2 = packed struct {
         }
     }
 
+    inline fn getGlyphs(self: *align(1) const @This()) [*]const u16 {
+        return @ptrFromInt(@intFromPtr(self) + PACKED_SIZE);
+    }
+
     pub fn readGlyph(self: *align(1) const @This(), nb: u8) GlyphIter {
-        const glyphs: [*]const u16 = @alignCast(@ptrCast(&self.glyphs));
+        const glyphs: [*]const u16 = self.getGlyphs();
         const bytesperlines: u32 = (self.header.width + 7) / 16;
         const glyph: u32 = (self.header.glyph_size * nb) / 2;
 

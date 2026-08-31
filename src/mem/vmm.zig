@@ -40,7 +40,7 @@ pub const PmlEntryFlag = packed struct(u9) {
     pub fn to_int(self: *const PmlEntryFlag) u9 {
         return @bitCast(self.*);
     }
-
+    pub const DEFAULT = PRESENT | READ_WRITE;
     pub const PRESENT = 1;
     pub const READ_WRITE = (1 << 1);
     pub const USER = (1 << 2);
@@ -200,7 +200,6 @@ pub fn remap_page(pml: *Pml, virt: u64, phys: u64, flags: u64) !void {
     const pml1 = try get_next_level(pml2, pml2_index);
 
     pml.entries[pml4_index].set_flags(PmlEntryFlag.from_u64(flags));
-
     pml3.entries[pml3_index].set_flags(PmlEntryFlag.from_u64(flags));
     pml2.entries[pml2_index].set_flags(PmlEntryFlag.from_u64(flags));
 

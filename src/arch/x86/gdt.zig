@@ -23,7 +23,7 @@ const TssEntry = packed struct(u128) {
 
     pub fn fromAddr(ptr: usize) TssEntry {
         return .{
-            .length = @sizeOf(tss.TaskSegment),
+            .length = tss.TaskSegment.PACKED_SIZE,
             .base_low = @intCast(ptr & 0xFFFF),
             .base_mid_low = @intCast((ptr >> 16) & 0xff),
             .flags = TssFlags.PRESENT | TssFlags.LONGMODE,
@@ -60,7 +60,7 @@ var GDT: Gdt = Gdt{ .entries = [_]GDTEntry{
         },
         .flags = .{
             .granularity = true,
-            .descriptor = 1,
+            .descriptor = .protected_32bit,
         },
     },
     GDTEntry{
@@ -85,7 +85,7 @@ var GDT: Gdt = Gdt{ .entries = [_]GDTEntry{
         },
         .flags = .{
             .granularity = true,
-            .descriptor = 1,
+            .descriptor = .protected_32bit,
         },
     },
 } };
@@ -112,13 +112,13 @@ const AccessByte = packed struct(u8) {
 
 // https://osdev.wiki/wiki/Global_Descriptor_Table#Segment_Descriptor
 pub const Flags = packed struct(u4) {
-    const Descriptor = struct {
-        const protected_16bit = 0;
-        const protected_32bit = 1;
+    const Descriptor = enum(u1) {
+        protected_16bit = 0,
+        protected_32bit = 1,
     };
     reserved: u1 = 0,
     long: bool = false,
-    descriptor: u1 = Descriptor.protected_16bit,
+    descriptor: Descriptor = .protected_16bit,
     granularity: bool = false,
 };
 
@@ -126,9 +126,9 @@ pub const GDTEntry = packed struct(u64) {
     limit_low: u16 = 0,
     base_low: u16 = 0,
     base_middle: u8 = 0,
-    access_byte: AccessByte = .{},
+    access_byte: AccessByte,
     limit_high: u4 = 0,
-    flags: Flags = .{},
+    flags: Flags,
     base: u8 = 0,
 };
 

@@ -5,7 +5,7 @@ pub const Heap = @This();
 hbase: ?[*]u8 = null,
 hsize: ?usize = null,
 
-const AllocHeader = packed struct {
+const AllocHeader = struct {
     size: usize,
     // Put void here cause zig compiler crash when try align(1) ptr of AllocHeader
     prev_block: ?*void,

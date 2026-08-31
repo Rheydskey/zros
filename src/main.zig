@@ -24,43 +24,41 @@ const idiot2 = @embedFile("./idiot2");
 
 pub var kheap: ?heap.Heap = null;
 
-pub fn panic(msg: []const u8, _: ?*builtin.StackTrace, ret_addr: ?usize) noreturn {
+pub fn panic(msg: []const u8, _: ?*builtin.StackTrace, _: ?usize) noreturn {
     serial.println_nolock(
         \\====== This is a panic message ======
         \\{s}
+        \\ (TODO: Implement Stacktrace)
     , .{msg});
 
-    if (fb.screen != null) {
-        var screen = &fb.screen.?;
+    // if (fb.screen != null) {
+    //     var screen = &fb.screen.?;
 
-        screen.reset();
-        screen.println("===== PANIC =====", .{});
-        screen.println("{s}", .{msg});
-    }
+    //     screen.reset();
+    //     screen.println("===== PANIC =====", .{});
+    //     screen.println("{s}", .{msg});
+    // }
 
-    const addr = ret_addr orelse @returnAddress();
+    // const addr = ret_addr orelse @returnAddress();
 
-    var si = std.debug.StackIterator.init(addr, null);
-    defer si.deinit();
+    // if (fb.screen != null) {
+    //     var screen = &fb.screen.?;
 
-    if (fb.screen != null) {
-        var screen = &fb.screen.?;
+    //     screen.println("Stacktrace:", .{});
+    // }
 
-        screen.println("Stacktrace:", .{});
-    }
+    // serial.println_nolock("Stacktrace:", .{});
 
-    serial.println_nolock("Stacktrace:", .{});
+    // while (si.next()) |trace| {
+    //     if (fb.screen) |_| {
+    //         var screen = &fb.screen.?;
+    //         screen.println("0x{X}", .{trace});
+    //     }
 
-    while (si.next()) |trace| {
-        if (fb.screen) |_| {
-            var screen = &fb.screen.?;
-            screen.println("0x{X}", .{trace});
-        }
+    //     serial.println_nolock("0x{X}", .{trace});
+    // }
 
-        serial.println_nolock("0x{X}", .{trace});
-    }
-
-    serial.println_nolock("=====", .{});
+    // serial.println_nolock("=====", .{});
 
     while (true) {
         assembly.hlt();
@@ -151,9 +149,9 @@ pub fn main() !noreturn {
 
     // try smp.init();
 
-    syscall.init();
+    // syscall.init();
 
-    pci.scan();
+    // pci.scan();
 
     // try load_tasks(kernel_stack);
 

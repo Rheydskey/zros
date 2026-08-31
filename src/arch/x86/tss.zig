@@ -21,4 +21,6 @@ pub const TaskSegment = packed struct {
         reserved: u16 = 0,
         iopb: u16,
     },
+
+    pub const PACKED_SIZE = @bitSizeOf(@This()) / 8;
 };

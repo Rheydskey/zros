@@ -11,7 +11,7 @@ const Idt = struct {
     entries: [IDT_SIZE]IdtEntry,
 
     fn empty() @This() {
-        return @This(){ .entries = [_]IdtEntry{undefined} ** IDT_SIZE };
+        return @This(){ .entries = @splat(undefined) };
     }
 };
 
